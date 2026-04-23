@@ -9,11 +9,16 @@ The goal of this project is to build a semi-educational tool that combines mathe
 
 
 ## Needs to Have
-**Stock Data System**
-Load real time (or slightly delayed) stock prices data (Possibly with APIs)
-Store and update data efficiently
-Display stock prices as continuous graphs
-Allow users to pick and switch between stocks
+**Stock Data System**  
+
+- Load real time (or slightly delayed) stock prices data (Possibly with APIs)  
+
+- Store and update data efficiently  
+
+- Display stock prices as continuous graphs  
+
+- Allow users to pick and switch between stocks  
+
 
 **Graphing & Visualization**
 Render a real-time updating line graph of stock prices
