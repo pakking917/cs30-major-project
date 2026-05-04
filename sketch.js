@@ -5,7 +5,7 @@
 // Extra for Experts:
 // - describe what you did to take this project "above and beyond"
 
-const API = secretCode;
+let data;
 let stockPrices = [];
 let currentPrice = 0;
 
@@ -36,4 +36,12 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
   }
 
 
+}
+
+grabCurrentPrice(ticker) {
+  let data = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+}
+
+async function getData() {
+  const response = await fetch('')
 }
