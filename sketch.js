@@ -9,6 +9,9 @@ let data;
 let stockPrices = [];
 let currentPrice = 0;
 
+let cash = 1000;
+let stock 
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
 }
@@ -42,6 +45,13 @@ grabCurrentPrice(ticker) {
   let data = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
 }
 
-async function getData() {
-  const response = await fetch('')
+async function getData(url) {
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+  } 
+  catch (error) {
+    console.error("Error fetching data:", error);
+  }
 }
