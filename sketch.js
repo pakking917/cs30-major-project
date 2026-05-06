@@ -10,10 +10,14 @@ let stockPrices = [];
 let currentPrice = 0;
 
 let cash = 1000;
-let stock 
+let stock = "NVDA";
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  let stockData = grabCurrentPrice(stock);
+  currentPrice = stockData.close;
+  console.log(stockData);
+  console.log(currentPrice);
 }
 
 function draw() {
@@ -42,7 +46,9 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
 }
 
 grabCurrentPrice(ticker) {
-  let data = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  const data = await getData(link);
+  return data;
 }
 
 async function getData(url) {
