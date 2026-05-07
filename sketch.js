@@ -11,6 +11,9 @@ let currentPrice = 0;
 
 let cash = 1000;
 let stock = "NVDA";
+let stockData;
+
+
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -45,9 +48,10 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
 
 }
 
-grabCurrentPrice(ticker) {
+function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
-  const data = await getData(link);
+  link = `https://eodhd.com/api/real-time/${ticker}.US?api_token=demo&fmt=json`;
+  const data = getData(link);
   return data;
 }
 
@@ -55,6 +59,7 @@ async function getData(url) {
   try {
     const response = await fetch(url);
     const data = await response.json();
+    console.log(data);
     return data;
   } 
   catch (error) {
