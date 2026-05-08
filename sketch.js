@@ -9,9 +9,13 @@ let data;
 let stockPrices = [];
 let currentPrice = 0;
 
-let cash = 1000;
+let cash = 10000;
+
 let stock = "NVDA";
 let stockData;
+let shares = 0;
+let portfolioValue = 0;
+
 
 
 
@@ -26,6 +30,14 @@ function setup() {
 function draw() {
   background(220);
   circle(mouseX, mouseY, 50);
+}
+
+function initializeSystem()  {
+
+}
+
+function updateSystem() {
+
 }
 
 
