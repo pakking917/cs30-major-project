@@ -48,7 +48,9 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
   let currentPrice = initialPrize;
   for (let i = 0; i < steps; i += dStep) {
 
-    // 
+    //
+    let u1 = random(0, 1);
+    let u2 = random(0, 1);
     let z0 = Math.sqrt(-2 * Math.log(random())) *  Math.cos(TAU * random());
 
     let drift = (averageReturn - 0.5 * Math.pow(dStep, 2)) * dStep;
