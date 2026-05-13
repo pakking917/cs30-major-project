@@ -16,6 +16,10 @@ let stockData;
 let shares = 0;
 let portfolioValue = 0;
 
+let simulationPrices = [1];
+
+
+
 
 
 
@@ -41,18 +45,18 @@ function updateSystem() {
 }
 
 
-function drawGraph() {}
 
-function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365) {
+function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365, volatility = 0.02) {
   let prices = [initialPrize];
   let currentPrice = initialPrize;
   for (let i = 0; i < steps; i += dStep) {
 
     //
-    let u1 = random(0, 1);
-    let u2 = random(0, 1);
-    let z0 = Math.sqrt(-2 * Math.log(random())) *  Math.cos(TAU * random());
+    let u1 = random();
+    let u2 = random();
+    let z0 = Math.sqrt(-2 * Math.log(u1)) *  Math.cos(TAU * u2);
 
+    let dailyReturn = averageReturn + volatility * z0;
     let drift = (averageReturn - 0.5 * Math.pow(dStep, 2)) * dStep;
     let diffusion = averageReturn * Math.sqrt(dStep) * z0;
     let change = Math.exp(drift + diffusion);
@@ -61,6 +65,29 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
 
 
 }
+
+function buyShare() {
+  if (cash >= currentPrice) {
+    share++;
+    cash -= currentPrice;
+  }
+}
+
+function drawGraph() {
+  let graphX = 50;
+  let graphY = 50;
+
+  let graphW = width - graphX * 2;
+  let graphH = height - graphY * 2;
+
+  rect(graphX, graphY, graphW, graphH);
+
+  for (let i = 0; i < simulationPrices.length; i++) {
+    let x = new Map();
+    let y = new Map();
+  }
+}
+
 
 function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
@@ -79,4 +106,9 @@ async function getData(url) {
   catch (error) {
     console.error("Error fetching data:", error);
   }
+}
+
+
+function tempGenPrices() {
+  for (i = 0; i < 100; )
 }
