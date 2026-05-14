@@ -37,6 +37,17 @@ function draw() {
 }
 
 function initializeSystem()  {
+  buyButton = createButton("Buy 1 Share");
+  buyButton.position(20, 20);
+  buyButton.mousePressed(buyShare);
+
+  sellButton = createButton("Sell 1 Share");
+  sellButton.position(120, 20);
+  sellButton.mousePressed(sellShare);
+
+  simulateButton = createButton("Run Simulation");
+  simulateButton.position(220, 20);
+  simulateButton.mousePressed(runMonteCarlo);
 
 }
 
@@ -44,6 +55,9 @@ function updateSystem() {
 
 }
 
+function runMonteCarlo() {
+  simulatedPrices = generatePrice(currentPrice);
+}
 
 
 function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365, volatility = 0.02) {
@@ -83,8 +97,8 @@ function drawGraph() {
   rect(graphX, graphY, graphW, graphH);
 
   for (let i = 0; i < simulationPrices.length; i++) {
-    let x = new Map();
-    let y = new Map();
+    let x = map();
+    let y = map();
   }
 }
 
