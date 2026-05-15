@@ -29,11 +29,11 @@ function setup() {
   currentPrice = stockData.close;
   console.log(stockData);
   console.log(currentPrice);
+  drawGraph(tempGenPrices(simulationPrices));
+
 }
 
 function draw() {
-  background(220);
-  circle(mouseX, mouseY, 50);
 }
 
 function initializeSystem()  {
@@ -87,19 +87,35 @@ function buyShare() {
   }
 }
 
-function drawGraph() {
+function drawGraph(priceArray) {
   let graphX = 50;
   let graphY = 50;
 
   let graphW = width - graphX * 2;
   let graphH = height - graphY * 2;
 
+  // Border
+  stroke(255);
+  noFill();
+
   rect(graphX, graphY, graphW, graphH);
 
-  for (let i = 0; i < simulationPrices.length; i++) {
-    let x = map();
-    let y = map();
+  // Draw current price line
+  stroke(0, 255, 0);
+  strokeWeight(2);
+
+  beginShape();
+
+  for (let i = 0; i < priceArray.length; i++) {
+
+    let x = map(i, 0, priceArray.length - 1, graphX, graphX + graphW);
+
+    let y = map(priceArray[i], min(priceArray), max(priceArray), graphY + graphH, graphY);
+
+    vertex(x, y);
   }
+
+  endShape();
 }
 
 
@@ -123,6 +139,10 @@ async function getData(url) {
 }
 
 
-function tempGenPrices() {
-  for (i = 0; i < 100; )
+function tempGenPrices(prices) {
+  let fakePrices = structuredClone(prices);
+  for (i = 0; i < 100; i++) {
+    fakePrices.push(fakePrices[fakePrices.length-1] * random(0.84, 1.2001));
+  }
+  return fakePrices;
 }
