@@ -29,7 +29,12 @@ function setup() {
   currentPrice = stockData.close;
   console.log(stockData);
   console.log(currentPrice);
-  drawGraph(tempGenPrices(simulationPrices));
+  drawGraph(tempGenPrices(1));
+  let counter = 0;
+  for (let i = 0; i < 10000; i++) {
+    counter += comparePrice(tempGenPrices(1));
+  }
+  console.log(counter);
 
 }
 
@@ -139,10 +144,26 @@ async function getData(url) {
 }
 
 
-function tempGenPrices(prices) {
-  let fakePrices = structuredClone(prices);
-  for (i = 0; i < 100; i++) {
-    fakePrices.push(fakePrices[fakePrices.length-1] * random(0.84, 1.2001));
+function tempGenPrices(initialPrice, averageReturn = 0.00003, volatility = 0.02, steps = 200) {
+  let prices = [initialPrice];
+  let current = initialPrice;
+
+  for (let i = 0; i < steps; i++) {
+
+    let u1 = random();
+    let u2 = random();
+
+    let z = sqrt(-2 * log(u1)) * cos(TWO_PI * u2);
+
+    let dailyReturn = averageReturn + volatility * z;
+
+    current *= exp(dailyReturn);
+    prices.push(current);
   }
-  return fakePrices;
+
+  return prices;
+}
+
+function comparePrice(priceArray) {
+  return priceArray[priceArray.length - 1] > priceArray[0];
 }
