@@ -19,10 +19,6 @@ let portfolioValue = 0;
 let simulationPrices = [1];
 
 
-
-
-
-
 function setup() {
   createCanvas(windowWidth, windowHeight);
   let stockData = grabCurrentPrice(stock);
@@ -35,7 +31,7 @@ function setup() {
     counter += comparePrice(tempGenPrices(1));
   }
   console.log(counter);
-
+  
 }
 
 function draw() {
@@ -65,6 +61,87 @@ function runMonteCarlo() {
 }
 
 
+
+function buyShare() {
+  if (cash >= currentPrice) {
+    share++;
+    cash -= currentPrice;
+  }
+}
+
+function drawGraph(priceArray) {
+  let graphX = 50;
+  let graphY = 50;
+  
+  let graphW = width - graphX * 2;
+  let graphH = height - graphY * 2;
+  
+  // Border
+  stroke(255);
+  noFill();
+  
+  rect(graphX, graphY, graphW, graphH);
+  
+  // Draw current price line
+  stroke(0, 255, 0);
+  strokeWeight(2);
+  
+  beginShape();
+  
+  for (let i = 0; i < priceArray.length; i++) {
+    
+    let x = map(i, 0, priceArray.length - 1, graphX, graphX + graphW);
+    
+    let y = map(priceArray[i], min(priceArray), max(priceArray), graphY + graphH, graphY);
+    
+    vertex(x, y);
+  }
+  
+  endShape();
+}
+
+
+async function grabCurrentPrice(ticker) {
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  link = `https://eodhd.com/api/real-time/${ticker}.US?api_token=demo&fmt=json`;
+  const data = await getData(link);
+  return data;
+}
+
+
+async function getData(url) {
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    console.log(data);
+    return data;
+  } 
+  catch (error) {
+    console.error("Error fetching data:", error);
+  }
+}
+
+
+function tempGenPrices(initialPrice, averageReturn = 0.00003, volatility = 0.02, steps = 200) {
+  let prices = [initialPrice];
+  let current = initialPrice;
+  
+  for (let i = 0; i < steps; i++) {
+    
+    let u1 = random();
+    let u2 = random();
+    
+    let z = sqrt(-2 * log(u1)) * cos(TAU * u2);
+    
+    let dailyReturn = averageReturn + volatility * z;
+    
+    current *= exp(dailyReturn);
+    prices.push(current);
+  }
+  
+  return prices;
+}
+
 function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365, volatility = 0.02) {
   let prices = [initialPrize];
   let currentPrice = initialPrize;
@@ -85,85 +162,15 @@ function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, 
 
 }
 
-function buyShare() {
-  if (cash >= currentPrice) {
-    share++;
-    cash -= currentPrice;
-  }
-}
-
-function drawGraph(priceArray) {
-  let graphX = 50;
-  let graphY = 50;
-
-  let graphW = width - graphX * 2;
-  let graphH = height - graphY * 2;
-
-  // Border
-  stroke(255);
-  noFill();
-
-  rect(graphX, graphY, graphW, graphH);
-
-  // Draw current price line
-  stroke(0, 255, 0);
-  strokeWeight(2);
-
-  beginShape();
-
-  for (let i = 0; i < priceArray.length; i++) {
-
-    let x = map(i, 0, priceArray.length - 1, graphX, graphX + graphW);
-
-    let y = map(priceArray[i], min(priceArray), max(priceArray), graphY + graphH, graphY);
-
-    vertex(x, y);
-  }
-
-  endShape();
-}
-
-
-function grabCurrentPrice(ticker) {
-  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
-  link = `https://eodhd.com/api/real-time/${ticker}.US?api_token=demo&fmt=json`;
-  const data = getData(link);
-  return data;
-}
-
-async function getData(url) {
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    console.log(data);
-    return data;
-  } 
-  catch (error) {
-    console.error("Error fetching data:", error);
-  }
-}
-
-
-function tempGenPrices(initialPrice, averageReturn = 0.00003, volatility = 0.02, steps = 200) {
-  let prices = [initialPrice];
-  let current = initialPrice;
-
-  for (let i = 0; i < steps; i++) {
-
-    let u1 = random();
-    let u2 = random();
-
-    let z = sqrt(-2 * log(u1)) * cos(TWO_PI * u2);
-
-    let dailyReturn = averageReturn + volatility * z;
-
-    current *= exp(dailyReturn);
-    prices.push(current);
-  }
-
-  return prices;
-}
-
 function comparePrice(priceArray) {
   return priceArray[priceArray.length - 1] > priceArray[0];
+}
+
+function buyDipSellHigh(priceArray, days) {
+  let shares = 0;
+  for (let i = priceArray.length - days; i < priceArray.length; i++) {
+    const currentPrice = priceArray[i];
+    if ()
+  }
+
 }
