@@ -16,16 +16,17 @@ let stockData;
 let shares = 0;
 let portfolioValue = 0;
 
-let simulationPrices = [1];
-
+let simulationPrices = [];
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  let stockData = grabCurrentPrice(stock);
-  currentPrice = stockData.close;
-  console.log(stockData);
-  console.log(currentPrice);
-  drawGraph(tempGenPrices(1));
+  // let stockData = grabCurrentPrice(stock);
+  // currentPrice = stockData.close;
+  // console.log(stockData);
+  // console.log(currentPrice);
+
+  simulatedPrices = tempGenPrices(1);
+  drawGraph(simulatedPrices);
   let counter = 0;
   for (let i = 0; i < 10000; i++) {
     counter += comparePrice(tempGenPrices(1));
@@ -166,11 +167,55 @@ function comparePrice(priceArray) {
   return priceArray[priceArray.length - 1] > priceArray[0];
 }
 
-function buyDipSellHigh(priceArray, days) {
-  let shares = 0;
-  for (let i = priceArray.length - days; i < priceArray.length; i++) {
-    const currentPrice = priceArray[i];
-    if ()
+function buyDipSellHigh(priceArray, periods) {
+  if (priceArray <= periods) {
+    return;
   }
 
+  let totalGain = 0;
+  let totalLoss = 0;
+
+  for (let i = 1; i < periods; i++) {
+    const difference = priceArray[i] - priceArray[i-1];
+    if (difference > 0) {
+      totalGain += difference;
+    }
+    else {
+      totalLoss -= difference;
+    }
+  }
+
+  let avgGain = totalGain / periods;
+  let avgLoss = totalLoss / periods;
+
+  // Wilder's Smoothing
+  let currentGain = 0;
+  let currentLoss = 0;
+  for (let i = periods + 1; i < priceArray.length; i++) {
+    const difference = priceArray[i] - priceArray[i-1];
+    if (difference > 0) {
+      currentGain = difference;
+      currentLoss = 0;
+    }
+    else {
+      currentLoss = -difference;
+      currentGain = 0;
+    }
+  }
+
+  let currentAvgGain = (avgGain * (periods - 1) + currentGain) / periods;
+  let currentAvgLoss = (avgLoss * (periods - 1) + currentLoss) / periods;
+
+  const rs = currentAvgGain/currentAvgLoss;
+  const rsi = 100 - 100 / (1 + rs);
+
+  if (rsi > 70) {
+    return 'sell';
+  }
+  else if (rsi < 30) {
+    return 'buy';
+  }
+  else {
+    return 'hold';
+  }
 }
