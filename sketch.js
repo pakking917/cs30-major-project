@@ -25,14 +25,17 @@ function setup() {
   // console.log(stockData);
   // console.log(currentPrice);
 
-  simulatedPrices = tempGenPrices(1);
-  drawGraph(simulatedPrices);
+  simulationPrices = tempGenPrices(1);
+  drawGraph(simulationPrices);
+
   let counter = 0;
   for (let i = 0; i < 10000; i++) {
-    counter += comparePrice(tempGenPrices(1));
+    const skibidi = tempGenPrices(1);
+    counter += comparePrice(skibidi);
+    console.log(buyDipSellHigh(skibidi, 14), skibidi[skibidi.length - 1]);
   }
   console.log(counter);
-  
+  console.log(buyDipSellHigh(simulationPrices, 14), simulationPrices[simulationPrices.length - 1]);
 }
 
 function draw() {
@@ -168,14 +171,14 @@ function comparePrice(priceArray) {
 }
 
 function buyDipSellHigh(priceArray, periods) {
-  if (priceArray <= periods) {
+  if (!priceArray || priceArray.length <= periods) {
     return;
   }
 
   let totalGain = 0;
   let totalLoss = 0;
 
-  for (let i = 1; i < periods; i++) {
+  for (let i = 1; i <= periods; i++) {
     const difference = priceArray[i] - priceArray[i-1];
     if (difference > 0) {
       totalGain += difference;
@@ -189,24 +192,22 @@ function buyDipSellHigh(priceArray, periods) {
   let avgLoss = totalLoss / periods;
 
   // Wilder's Smoothing
-  let currentGain = 0;
-  let currentLoss = 0;
   for (let i = periods + 1; i < priceArray.length; i++) {
     const difference = priceArray[i] - priceArray[i-1];
     if (difference > 0) {
-      currentGain = difference;
-      currentLoss = 0;
+      const currentGain = difference;
+      const currentLoss = 0;
     }
     else {
-      currentLoss = -difference;
-      currentGain = 0;
+      const currentLoss = -difference;
+      const currentGain = 0;
     }
+    avgGain = (avgGain * (periods - 1) + currentGain) / periods;
+    avgLoss = (avgLoss * (periods - 1) + currentLoss) / periods;
   }
 
-  let currentAvgGain = (avgGain * (periods - 1) + currentGain) / periods;
-  let currentAvgLoss = (avgLoss * (periods - 1) + currentLoss) / periods;
 
-  const rs = currentAvgGain/currentAvgLoss;
+  const rs = avgGain/avgLoss;
   const rsi = 100 - 100 / (1 + rs);
 
   if (rsi > 70) {
@@ -218,4 +219,14 @@ function buyDipSellHigh(priceArray, periods) {
   else {
     return 'hold';
   }
+}
+
+function applyStrategy(priceArray, periods, startPeriods) {
+  let shares = 0;
+  let cash = 1000;
+
+
+  for (let i = priceArray)
+  let action = buyDipSellHigh(priceArray, )
+
 }
