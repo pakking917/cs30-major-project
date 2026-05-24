@@ -43,10 +43,10 @@ function setup() {
     let tempPath = tempGenPrices(1);
     let endData = applyStrategy(tempPath, 14, 14);
     console.log(endData);
-    let endBalance = endData[0];
-    let shares = endData[2];
-    let endPrice = endData[1];
-    let portValue = endBalance + shares * endPrice;
+    let endBalance = endData.endCash;
+    let shares = endData.finalShares;
+    let endPrice = endData.finalPrice;
+    let portValue = endData.endingValue;
     if (portValue > 1000) counter++;
     total += portValue;
   }
@@ -194,11 +194,12 @@ function comparePrice(priceArray) {
   return priceArray[priceArray.length - 1] > priceArray[0];
 }
 
-function buyDipSellHigh(priceArray, periods) {
+function calculateRSIArray(priceArray, periods) {
   if (!priceArray || priceArray.length <= periods) {
-    return null;
+    return [];
   }
 
+  let rsiArray = new Array(priceArray.length).fill(null);
   let totalGain = 0;
   let totalLoss = 0;
 
@@ -215,60 +216,72 @@ function buyDipSellHigh(priceArray, periods) {
   let avgGain = totalGain / periods;
   let avgLoss = totalLoss / periods;
 
+  if (avgLoss === 0) {
+    rsiArray[periods] = 100;
+  }
+  else {
+    100 - (100 / (1 + (avgGain / avgLoss)));
+  }
+
   // Wilder's Smoothing
   for (let i = periods + 1; i < priceArray.length; i++) {
     const difference = priceArray[i] - priceArray[i-1];
     let currentLoss = 0;
     let currentGain = 0;
+
     if (difference > 0) {
       currentGain = difference;
     }
     else {
       currentLoss = -difference;
     }
+
     avgGain = (avgGain * (periods - 1) + currentGain) / periods;
     avgLoss = (avgLoss * (periods - 1) + currentLoss) / periods;
+
+    if (avgLoss === 0) {
+      rsiArray[i] = 100;
+    } 
+    else {
+      const rs = avgGain / avgLoss;
+      rsiArray[i] = 100 - (100 / (1 + rs));
+    }
   }
 
-
-  const rs = avgGain/avgLoss;
-  const rsi = 100 - 100 / (1 + rs);
-
-  if (rsi > 70) {
-    return 'sell';
-  }
-  else if (rsi < 30) {
-    return 'buy';
-  }
-  else {
-    return 'hold';
-  }
+  return rsiArray;
 }
 
 function applyStrategy(priceArray, periods, startPeriods) {
   let shares = 0;
   let cash = 1000;
 
+  const rsiArray = calculateRSIArray(priceArray, periods);
+  
 
   for (let i = startPeriods; i < priceArray.length; i++) {
-    let currentHistory = priceArray.slice(0, i + 1);
-    const action = buyDipSellHigh(currentHistory, periods);
+    const currentRSI = rsiArray[i];
     const currentPrice = priceArray[i];
-    if (action === 'buy') {
-      const sharesToBuy = 1000 / currentPrice;
+
+    if (currentRSI < 30 && cash > 0) {
+      // Goes "all in" with whatever cash is available
+      const sharesToBuy = cash / currentPrice; 
       shares += sharesToBuy;
-      cash -= 1000;
-      console.log(`buy at: $${currentPrice.toFixed(2)}, Cash: ${cash}, Value: ${cash + shares * currentPrice}`);
+      // console.log(`Buy at: $${currentPrice.toFixed(2)} | Invested: $${cash.toFixed(2)}`);
+      cash = 0; 
     } 
-    else if (action === 'sell' && shares > 0) { 
+    else if (currentRSI > 70 && shares > 0) { 
       cash += shares * currentPrice;
-      console.log(`sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
+      // console.log(`Sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
       shares = 0;
     }
   }
 
   const finalPrice = priceArray[priceArray.length - 1];
-  const endingBalance = cash + shares * finalPrice;
-  
-  return [cash, finalPrice, shares, endingBalance];
+
+  return {
+    finalCash: cash,
+    finalPrice: finalPrice,
+    finalShares: shares,
+    endingValue: cash + shares * finalPrice
+  };
 }
