@@ -25,7 +25,7 @@ function setup() {
   // console.log(stockData);
   // console.log(currentPrice);
 
-  // simulationPrices = tempGenPrices(1);
+  // simulationPrices = generatePrice(1);
   // let endData = applyStrategy(simulationPrices, 14, 14);
   // let endBalance = endData[0];
   // let shares = endData[2];
@@ -40,7 +40,7 @@ function setup() {
   let counter = 0;
   let total = 0;
   for (let i = 0; i < 100; i++) {
-    let tempPath = tempGenPrices(1);
+    let tempPath = generatePrice(1);
     let endData = applyStrategy(tempPath, 14, 14);
     console.log(endData);
     let endBalance = endData.endCash;
@@ -55,7 +55,7 @@ function setup() {
 
   // let counter = 0;
   // for (let i = 0; i < 10000; i++) {
-  //   const skibidi = tempGenPrices(1);
+  //   const skibidi = generatePrice(1);
   //   counter += comparePrice(skibidi);
   //   console.log(buyDipSellHigh(skibidi, 14), skibidi[skibidi.length - 1]);
   // }
@@ -149,45 +149,28 @@ async function getData(url) {
   }
 }
 
-
-function tempGenPrices(initialPrice, averageReturn = 0.00003, volatility = 0.02, steps = 200) {
+function generatePrice(initialPrice, averageReturn = 0.0003, volatility = 0.02, totalTime = 1, steps = 365) {
   let prices = [initialPrice];
-  let current = initialPrice;
-  
-  for (let i = 0; i < steps; i++) {
-    
-    let u1 = random();
-    let u2 = random();
-    
-    let z = sqrt(-2 * log(u1)) * cos(TAU * u2);
-    
-    let dailyReturn = averageReturn + volatility * z;
-    
-    current *= exp(dailyReturn);
-    prices.push(current);
-  }
-  
-  return prices;
-}
+  let currentPrice = initialPrice;
 
-function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365, volatility = 0.02) {
-  let prices = [initialPrize];
-  let currentPrice = initialPrize;
+  let dStep = totalTime / steps; 
+
+
   for (let i = 0; i < steps; i += dStep) {
 
-    //
     let u1 = random();
     let u2 = random();
     let z0 = Math.sqrt(-2 * Math.log(u1)) *  Math.cos(TAU * u2);
 
-    let dailyReturn = averageReturn + volatility * z0;
-    let drift = (averageReturn - 0.5 * Math.pow(dStep, 2)) * dStep;
-    let diffusion = averageReturn * Math.sqrt(dStep) * z0;
-    let change = Math.exp(drift + diffusion);
+    let drift = (averageReturn - 0.5 * Math.pow(volatility, 2)) * dStep;
+    let diffusion = volatility * Math.sqrt(dStep) * z0;
+    
+    currentPrice *= Math.exp(drift + diffusion);
+    prices.push(currentPrice);
 
   }
 
-
+  return prices;
 }
 
 function comparePrice(priceArray) {
