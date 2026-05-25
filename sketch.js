@@ -20,46 +20,25 @@ let simulationPrices = [];
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  // let stockData = grabCurrentPrice(stock);
-  // currentPrice = stockData.close;
-  // console.log(stockData);
-  // console.log(currentPrice);
+  let stockData = grabCurrentPrice(stock);
+  currentPrice = stockData.close;
+  console.log(stockData);
+  console.log(currentPrice);
 
-  // simulationPrices = generatePrice(1);
-  // let endData = applyStrategy(simulationPrices, 14, 14);
-  // let endBalance = endData[0];
-  // let shares = endData[2];
-  // let endPrice = endData[1];
+  simulationPrices = generatePrice(1);
+  endData = applyStrategy(simulationPrices, 14, 14);
+  let endBalance = endData.finalCash;
+  let shares = endData.finalShares;
+  let endPrice = endData.finalPrice;
+  let portValue = endData.endingValue;
   
-  // console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
-  // console.log(`Portfolio value: $${(endBalance + shares * endPrice).toFixed(2)}`)
-  // drawGraph(simulationPrices);
+  console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
+  console.log(`Portfolio value: $${portValue.toFixed(2)}`);
+  drawGraph(simulationPrices);
 
-  // console.log(buyDipSellHigh(simulationPrices, 14), simulationPrices[simulationPrices.length - 1]);
+  // console.log(calculateRSIArray(simulationPrices, 14)[simulationPrices.length - 1], simulationPrices[simulationPrices.length - 1]);
 
-  let counter = 0;
-  let total = 0;
-  for (let i = 0; i < 100; i++) {
-    let tempPath = generatePrice(1);
-    let endData = applyStrategy(tempPath, 14, 14);
-    console.log(endData);
-    let endBalance = endData.endCash;
-    let shares = endData.finalShares;
-    let endPrice = endData.finalPrice;
-    let portValue = endData.endingValue;
-    if (portValue > 1000) counter++;
-    total += portValue;
-  }
-  console.log(counter);
-  console.log(total/100);
 
-  // let counter = 0;
-  // for (let i = 0; i < 10000; i++) {
-  //   const skibidi = generatePrice(1);
-  //   counter += comparePrice(skibidi);
-  //   console.log(buyDipSellHigh(skibidi, 14), skibidi[skibidi.length - 1]);
-  // }
-  // console.log(counter);
 }
 
 function draw() {
@@ -131,7 +110,7 @@ function drawGraph(priceArray) {
 
 async function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
-  link = `https://eodhd.com/api/real-time/${ticker}.US?api_token=demo&fmt=json`;
+  // link = `https://eodhd.com/api/eod/${ticker}.US?api_token=69f8c9abe7ea52.17961877&fmt=json`;
   const data = await getData(link);
   return data;
 }
