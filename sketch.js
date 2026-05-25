@@ -18,14 +18,16 @@ let portfolioValue = 0;
 
 let simulationPrices = [];
 
-function setup() {
+async function setup() {
   createCanvas(windowWidth, windowHeight);
-  let stockData = grabCurrentPrice(stock);
-  currentPrice = stockData.close;
-  console.log(stockData);
-  console.log(currentPrice);
+  // let stockData = await grabCurrentPrice(stock);
+  // currentPrice = stockData.close;
+  // console.log(stockData);
+  // console.log(currentPrice);
 
   simulationPrices = generatePrice(1);
+  console.log(simulationPrices);
+  drawGraph(simulationPrices);
   endData = applyStrategy(simulationPrices, 14, 14);
   let endBalance = endData.finalCash;
   let shares = endData.finalShares;
@@ -34,9 +36,21 @@ function setup() {
   
   console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
   console.log(`Portfolio value: $${portValue.toFixed(2)}`);
-  drawGraph(simulationPrices);
 
-  // console.log(calculateRSIArray(simulationPrices, 14)[simulationPrices.length - 1], simulationPrices[simulationPrices.length - 1]);
+  console.log(calculateRSIArray(simulationPrices, 14)[simulationPrices.length - 1], simulationPrices[simulationPrices.length - 1]);
+  console.log(portValue, simulationPrices[simulationPrices.length - 1] * 1000);
+
+  let counter = 0;
+  let stratTotal = 0;
+  let endTotal = 0;
+  for (let i = 0; i < 100; i++) {
+    let tempPrice = generatePrice(1);
+    portValue = applyStrategy(tempPrice, 14, 14).endingValue;
+    if (portValue > tempPrice[tempPrice.length - 1] * 1000) counter++;
+    stratTotal += portValue;
+    endTotal += tempPrice[tempPrice.length - 1] * 1000;
+  }
+  console.log(counter, stratTotal, endTotal);
 
 
 }
@@ -128,7 +142,7 @@ async function getData(url) {
   }
 }
 
-function generatePrice(initialPrice, averageReturn = 0.0003, volatility = 0.02, totalTime = 1, steps = 365) {
+function generatePrice(initialPrice, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
   let prices = [initialPrice];
   let currentPrice = initialPrice;
 
