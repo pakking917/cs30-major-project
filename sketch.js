@@ -20,10 +20,10 @@ let simulationPrices = [];
 
 async function setup() {
   createCanvas(windowWidth, windowHeight);
-  // let stockData = await grabCurrentPrice(stock);
-  // currentPrice = stockData.close;
-  // console.log(stockData);
-  // console.log(currentPrice);
+  let stockData = await grabCurrentPrice(stock);
+  currentPrice = stockData.close;
+  console.log(stockData);
+  console.log(currentPrice);
 
   simulationPrices = generatePrice(1);
   console.log(simulationPrices);
