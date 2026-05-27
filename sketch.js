@@ -11,7 +11,7 @@ let currentPrice = 0;
 
 let cash = 10000;
 
-let stock = "NVDA";
+let stock = "MCD";
 let stockData;
 let shares = 0;
 let portfolioValue = 0;
@@ -20,15 +20,17 @@ let simulationPrices = [];
 
 async function setup() {
   createCanvas(windowWidth, windowHeight);
-  let stockData = await grabCurrentPrice(stock);
-  currentPrice = stockData.close;
-  console.log(stockData);
-  console.log(currentPrice);
+  stockData = await grabCurrentPrice(stock);
+  
+  console.log(stockData, 'stockData');
 
-  simulationPrices = generatePrice(1);
-  console.log(simulationPrices);
-  drawGraph(simulationPrices);
-  endData = applyStrategy(simulationPrices, 14, 14);
+  stockPrices = parseHistoricalData(stockData);
+
+  console.log(stockPrices, 'stockPrices');
+
+
+  drawGraph(stockPrices);
+  endData = applyStrategy(stockPrices, 14, 14);
   let endBalance = endData.finalCash;
   let shares = endData.finalShares;
   let endPrice = endData.finalPrice;
@@ -36,21 +38,36 @@ async function setup() {
   
   console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
   console.log(`Portfolio value: $${portValue.toFixed(2)}`);
+  
+  console.log(calculateRSIArray(stockPrices, 14)[stockPrices.length - 1], stockPrices[stockPrices.length - 1]);
+  console.log(portValue, stockPrices[stockPrices.length - 1] / stockPrices[0] * 1000);
+  
+  simulationPrices = generatePrice(stockPrices);
+  console.log(simulationPrices, "SIMULATION");
+  drawGraph(simulationPrices, [255, 0, 0]);
+  endData = applyStrategy(simulationPrices, 14, 14);
+  endBalance = endData.finalCash;
+  shares = endData.finalShares;
+  endPrice = endData.finalPrice;
+  portValue = endData.endingValue;
+  
+  console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
+  console.log(`Portfolio value: $${portValue.toFixed(2)}`);
 
   console.log(calculateRSIArray(simulationPrices, 14)[simulationPrices.length - 1], simulationPrices[simulationPrices.length - 1]);
-  console.log(portValue, simulationPrices[simulationPrices.length - 1] * 1000);
+  console.log(portValue, simulationPrices[simulationPrices.length - 1] / simulationPrices[0] * 1000);
 
-  let counter = 0;
-  let stratTotal = 0;
-  let endTotal = 0;
-  for (let i = 0; i < 100; i++) {
-    let tempPrice = generatePrice(1);
-    portValue = applyStrategy(tempPrice, 14, 14).endingValue;
-    if (portValue > tempPrice[tempPrice.length - 1] * 1000) counter++;
-    stratTotal += portValue;
-    endTotal += tempPrice[tempPrice.length - 1] * 1000;
-  }
-  console.log(counter, stratTotal, endTotal);
+  // let counter = 0;
+  // let stratTotal = 0;
+  // let endTotal = 0;
+  // for (let i = 0; i < 100; i++) {
+  //   let tempPrice = generatePrice(1);
+  //   portValue = applyStrategy(tempPrice, 14, 14).endingValue;
+  //   if (portValue > tempPrice[tempPrice.length - 1] * 1000) counter++;
+  //   stratTotal += portValue;
+  //   endTotal += tempPrice[tempPrice.length - 1] * 1000;
+  // }
+  // console.log(counter, stratTotal, endTotal);
 
 
 }
@@ -81,6 +98,13 @@ function runMonteCarlo() {
   simulatedPrices = generatePrice(currentPrice);
 }
 
+function parseHistoricalData(data, length = 500) {
+  someData = [];
+  for (let i = data.length - length; i < data.length; i++) {
+    someData.push(data[i].close);
+  }
+  return someData;
+}
 
 
 function buyShare() {
@@ -90,7 +114,7 @@ function buyShare() {
   }
 }
 
-function drawGraph(priceArray) {
+function drawGraph(priceArray, color = [0, 255, 0]) {
   let graphX = 50;
   let graphY = 50;
   
@@ -104,7 +128,7 @@ function drawGraph(priceArray) {
   rect(graphX, graphY, graphW, graphH);
   
   // Draw current price line
-  stroke(0, 255, 0);
+  stroke(color);
   strokeWeight(2);
   
   beginShape();
@@ -142,9 +166,9 @@ async function getData(url) {
   }
 }
 
-function generatePrice(initialPrice, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
-  let prices = [initialPrice];
-  let currentPrice = initialPrice;
+function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
+  let prices = structuredClone(priceHistory);
+  let currentPrice = priceHistory[priceHistory.length - 1];
 
   let dStep = totalTime / steps; 
 
@@ -238,14 +262,14 @@ function applyStrategy(priceArray, periods, startPeriods) {
     const currentRSI = rsiArray[i];
     const currentPrice = priceArray[i];
 
-    if (currentRSI < 30 && cash > 0) {
+    if (currentRSI < 20 && cash > 0) {
       // Goes "all in" with whatever cash is available
       const sharesToBuy = cash / currentPrice; 
       shares += sharesToBuy;
       // console.log(`Buy at: $${currentPrice.toFixed(2)} | Invested: $${cash.toFixed(2)}`);
       cash = 0; 
     } 
-    else if (currentRSI > 70 && shares > 0) { 
+    else if (currentRSI > 80 && shares > 0) { 
       cash += shares * currentPrice;
       // console.log(`Sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
       shares = 0;
