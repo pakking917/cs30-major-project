@@ -20,6 +20,7 @@ let simulationPrices = [];
 
 async function setup() {
   createCanvas(windowWidth, windowHeight);
+  initializeSystem();
   stockData = await grabCurrentPrice(stock);
   
   console.log(stockData, 'stockData');
@@ -27,6 +28,8 @@ async function setup() {
   stockPrices = parseHistoricalData(stockData);
 
   console.log(stockPrices, 'stockPrices');
+
+  currentPrice = stockPrices[stockPrices.length - 1];
 
 
   drawGraph(stockPrices);
@@ -41,34 +44,6 @@ async function setup() {
   
   console.log(calculateRSIArray(stockPrices, 14)[stockPrices.length - 1], stockPrices[stockPrices.length - 1]);
   console.log(portValue, stockPrices[stockPrices.length - 1] / stockPrices[0] * 1000);
-  
-  simulationPrices = generatePrice(stockPrices);
-  console.log(simulationPrices, "SIMULATION");
-  drawGraph(simulationPrices, [255, 0, 0]);
-  endData = applyStrategy(simulationPrices, 14, 14);
-  endBalance = endData.finalCash;
-  shares = endData.finalShares;
-  endPrice = endData.finalPrice;
-  portValue = endData.endingValue;
-  
-  console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
-  console.log(`Portfolio value: $${portValue.toFixed(2)}`);
-
-  console.log(calculateRSIArray(simulationPrices, 14)[simulationPrices.length - 1], simulationPrices[simulationPrices.length - 1]);
-  console.log(portValue, simulationPrices[simulationPrices.length - 1] / simulationPrices[0] * 1000);
-
-  // let counter = 0;
-  // let stratTotal = 0;
-  // let endTotal = 0;
-  // for (let i = 0; i < 100; i++) {
-  //   let tempPrice = generatePrice(1);
-  //   portValue = applyStrategy(tempPrice, 14, 14).endingValue;
-  //   if (portValue > tempPrice[tempPrice.length - 1] * 1000) counter++;
-  //   stratTotal += portValue;
-  //   endTotal += tempPrice[tempPrice.length - 1] * 1000;
-  // }
-  // console.log(counter, stratTotal, endTotal);
-
 
 }
 
@@ -95,10 +70,13 @@ function updateSystem() {
 }
 
 function runMonteCarlo() {
-  simulatedPrices = generatePrice(currentPrice);
+  simulationPrices = generatePrice(stockPrices);
+  background(255);
+  drawGraph(stockPrices);
+  drawGraph(simulationPrices, [255, 0, 0]);
 }
 
-function parseHistoricalData(data, length = 500) {
+function parseHistoricalData(data, length = 1000) {
   someData = [];
   for (let i = data.length - length; i < data.length; i++) {
     someData.push(data[i].close);
@@ -109,9 +87,19 @@ function parseHistoricalData(data, length = 500) {
 
 function buyShare() {
   if (cash >= currentPrice) {
-    share++;
+    shares++;
     cash -= currentPrice;
   }
+  console.log(shares, cash);
+}
+
+function sellShare() {
+  if (shares >= 1) {
+    shares--;
+    cash += currentPrice;
+  }
+  console.log(shares, cash);
+
 }
 
 function drawGraph(priceArray, color = [0, 255, 0]) {
@@ -220,7 +208,7 @@ function calculateRSIArray(priceArray, periods) {
     rsiArray[periods] = 100;
   }
   else {
-    100 - (100 / (1 + (avgGain / avgLoss)));
+    rsiArray[periods] = 100 - (100 / (1 + (avgGain / avgLoss)));
   }
 
   // Wilder's Smoothing
