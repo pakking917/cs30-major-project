@@ -208,7 +208,7 @@ function calculateRSIArray(priceArray, periods) {
     rsiArray[periods] = 100;
   }
   else {
-    rsiArray[periods] = 100 - (100 / (1 + (avgGain / avgLoss)));
+    rsiArray[periods] = 100 - 100 / (1 + avgGain / avgLoss);
   }
 
   // Wilder's Smoothing
@@ -232,7 +232,7 @@ function calculateRSIArray(priceArray, periods) {
     } 
     else {
       const rs = avgGain / avgLoss;
-      rsiArray[i] = 100 - (100 / (1 + rs));
+      rsiArray[i] = 100 - 100 / (1 + rs);
     }
   }
 
@@ -272,4 +272,8 @@ function applyStrategy(priceArray, periods, startPeriods) {
     finalShares: shares,
     endingValue: cash + shares * finalPrice
   };
+}
+
+function checkTicker(ticker) {
+  return tickerList.include(ticker); 
 }
