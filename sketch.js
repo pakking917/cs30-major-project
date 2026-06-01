@@ -136,13 +136,17 @@ function drawGraph(priceArray, color = [0, 255, 0]) {
 
 async function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
-  // link = `https://eodhd.com/api/eod/${ticker}.US?api_token=69f8c9abe7ea52.17961877&fmt=json`;
   const data = await getData(link);
   return data;
 }
 
+async function grabPriceHistory(ticker) {
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  const data = await getData(link);
+  return data;
+}
 
-async function getData(url) {
+async function getData(url, action) {
   try {
     const response = await fetch(url);
     const data = await response.json();
