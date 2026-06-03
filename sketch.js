@@ -6,6 +6,7 @@
 // - describe what you did to take this project "above and beyond"
 
 let data;
+let tickerLibrary;
 let stockPrices = [];
 let currentPrice = 0;
 
@@ -18,10 +19,14 @@ let portfolioValue = 0;
 
 let simulationPrices = [];
 
+function preload() {
+  tickerLibrary = loadJSON('nasdaq_tickers.json');
+}
+
 async function setup() {
   createCanvas(windowWidth, windowHeight);
   initializeSystem();
-  stockData = await grabCurrentPrice(stock);
+  stockData = await grabPriceHistory(stock);
   
   console.log(stockData, 'stockData');
 
@@ -29,7 +34,11 @@ async function setup() {
 
   console.log(stockPrices, 'stockPrices');
 
-  currentPrice = stockPrices[stockPrices.length - 1];
+  currentPriceData = await grabCurrentPrice(stock);
+  currentPrice = currentPriceData.close;
+  console.log(currentPrice, 'currentPrice');
+  stockPrices.push(currentPrice);
+  console.log(stockPrices);
 
 
   drawGraph(stockPrices);
@@ -135,18 +144,18 @@ function drawGraph(priceArray, color = [0, 255, 0]) {
 
 
 async function grabCurrentPrice(ticker) {
-  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=current`;
   const data = await getData(link);
   return data;
 }
 
 async function grabPriceHistory(ticker) {
-  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=history`;
   const data = await getData(link);
   return data;
 }
 
-async function getData(url, action) {
+async function getData(url) {
   try {
     const response = await fetch(url);
     const data = await response.json();
@@ -279,5 +288,5 @@ function applyStrategy(priceArray, periods, startPeriods) {
 }
 
 function checkTicker(ticker) {
-  return tickerList.include(ticker); 
+  return tickerLibrary.include(ticker); 
 }
