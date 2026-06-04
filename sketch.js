@@ -7,6 +7,7 @@
 
 let data;
 let tickerLibrary;
+let tickerArray;
 let stockPrices = [];
 let currentPrice = 0;
 
@@ -20,7 +21,7 @@ let portfolioValue = 0;
 let simulationPrices = [];
 
 function preload() {
-  tickerLibrary = loadJSON('nasdaq_tickers.json');
+  tickerLibrary = loadJSON('company_tickers.json');
 }
 
 async function setup() {
@@ -28,17 +29,14 @@ async function setup() {
   initializeSystem();
   stockData = await grabPriceHistory(stock);
   
-  console.log(stockData, 'stockData');
 
   stockPrices = parseHistoricalData(stockData);
 
-  console.log(stockPrices, 'stockPrices');
 
   currentPriceData = await grabCurrentPrice(stock);
   currentPrice = currentPriceData.close;
   console.log(currentPrice, 'currentPrice');
   stockPrices.push(currentPrice);
-  console.log(stockPrices);
 
 
   drawGraph(stockPrices);
@@ -72,6 +70,8 @@ function initializeSystem()  {
   simulateButton.position(220, 20);
   simulateButton.mousePressed(runMonteCarlo);
 
+  tickerArray = extractValues(tickerLibrary);
+  console.log(tickerArray);
 }
 
 function updateSystem() {
@@ -288,5 +288,12 @@ function applyStrategy(priceArray, periods, startPeriods) {
 }
 
 function checkTicker(ticker) {
-  return tickerLibrary.include(ticker); 
+  return tickerArray.includes(ticker); 
+}
+
+function extractValues(obj) {
+  const values = Object.values(obj);
+  return values.map(function(item) {
+    return item.ticker;
+  });
 }
