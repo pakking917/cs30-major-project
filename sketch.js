@@ -20,6 +20,26 @@ let portfolioValue = 0;
 
 let simulationPrices = [];
 
+const PAD        = 60;
+const HUD_W      = 220;
+const RSI_H      = 120;
+const RSI_GAP    = 10;
+const TOP_BAR    = 55;
+
+let buyButton, sellButton, simulateButton;
+let tickerInput, loadButton;
+
+const COL_BG       = [15,  17,  26];
+const COL_PANEL    = [22,  25,  38];
+const COL_BORDER   = [50,  55,  80];
+const COL_GREEN    = [0,   220, 130];
+const COL_RED      = [255, 80,  80];
+const COL_BLUE     = [80,  160, 255];
+const COL_SIM      = [255, 160, 40];
+const COL_TEXT     = [200, 210, 230];
+const COL_MUTED    = [100, 110, 140];
+const COL_RSI_LINE = [180, 120, 255];
+
 function preload() {
   tickerLibrary = loadJSON('company_tickers.json');
 }
@@ -57,6 +77,51 @@ async function setup() {
 function draw() {
 }
 
+function graphBounds() {
+  let x = PAD;
+  let y = TOP_BAR + PAD;
+  let w = width - PAD - HUD_W - 20;
+  let h = height - y - RSI_H - RSI_GAP - PAD;
+  return { x, y, w, h };
+}
+
+function drawHUD() {
+  let hx = width - HUD_W + 5;
+  let hy = TOP_BAR + PAD;
+  let hw = HUD_W - 15;
+  let hh = height - hy - PAD * 0.5;
+
+  fill(...COL_PANEL);
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  rect(hx, hy, hw, hh, 6);
+
+  noStroke();
+  let lineH = 28;
+  let curY  = hy + 16;
+}
+
+function drawTickerLabel() {
+  let { x, y } = graphBounds();
+  fill(...COL_TEXT);
+  noStroke();
+  textFont('Google Sans');
+  textSize(18);
+  textAlign(LEFT, BOTTOM);
+  text(stock, x + 8, y - 4);
+
+  // Price change
+  if (stockPrices.length > 1) {
+    let change    = stockPrices[stockPrices.length - 1] - stockPrices[0];
+    let changePct = change / stockPrices[0] * 100;
+    let col       = change >= 0 ? COL_GREEN : COL_RED;
+    fill(...col);
+    textSize(13);
+    let sign = change >= 0 ? "+" : "";
+    text(sign + "$" + change.toFixed(2) + " (" + sign + changePct.toFixed(2) + "%)", x + 70, y - 6);
+  }
+}
+
 function initializeSystem()  {
   buyButton = createButton("Buy 1 Share");
   buyButton.position(20, 20);
@@ -85,7 +150,7 @@ function runMonteCarlo() {
   drawGraph(simulationPrices, [255, 0, 0]);
 }
 
-function parseHistoricalData(data, length = 1000) {
+function parseHistoricalData(data, length = 600) {
   someData = [];
   for (let i = data.length - length; i < data.length; i++) {
     someData.push(data[i].close);
@@ -263,14 +328,14 @@ function applyStrategy(priceArray, periods, startPeriods) {
     const currentRSI = rsiArray[i];
     const currentPrice = priceArray[i];
 
-    if (currentRSI < 20 && cash > 0) {
+    if (currentRSI < 30 && cash > 0) {
       // Goes "all in" with whatever cash is available
       const sharesToBuy = cash / currentPrice; 
       shares += sharesToBuy;
       // console.log(`Buy at: $${currentPrice.toFixed(2)} | Invested: $${cash.toFixed(2)}`);
       cash = 0; 
     } 
-    else if (currentRSI > 80 && shares > 0) { 
+    else if (currentRSI > 70 && shares > 0) { 
       cash += shares * currentPrice;
       // console.log(`Sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
       shares = 0;
@@ -296,4 +361,14 @@ function extractValues(obj) {
   return values.map(function(item) {
     return item.ticker;
   });
+}
+
+// --- Resizing --------------------------------
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  // Reposition the ticker input/button on resize
+  tickerInput.position(width - HUD_W - 160, 12);
+  loadButton.position(width - HUD_W - 70, 12);
+  redrawAll();
 }
