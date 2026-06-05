@@ -6,36 +6,52 @@
 // - describe what you did to take this project "above and beyond"
 
 let data;
+let tickerLibrary;
+let tickerArray;
 let stockPrices = [];
 let currentPrice = 0;
 
 let cash = 10000;
 
-let stock = "NVDA";
+let stock = "MCD";
 let stockData;
 let shares = 0;
 let portfolioValue = 0;
 
 let simulationPrices = [];
 
-function setup() {
+function preload() {
+  tickerLibrary = loadJSON('company_tickers.json');
+}
+
+async function setup() {
   createCanvas(windowWidth, windowHeight);
-  // let stockData = grabCurrentPrice(stock);
-  // currentPrice = stockData.close;
-  // console.log(stockData);
-  // console.log(currentPrice);
+  initializeSystem();
+  stockData = await grabPriceHistory(stock);
+  
 
-  simulationPrices = tempGenPrices(1);
-  drawGraph(simulationPrices);
+  stockPrices = parseHistoricalData(stockData);
 
-  let counter = 0;
-  for (let i = 0; i < 10000; i++) {
-    const skibidi = tempGenPrices(1);
-    counter += comparePrice(skibidi);
-    console.log(buyDipSellHigh(skibidi, 14), skibidi[skibidi.length - 1]);
-  }
-  console.log(counter);
-  console.log(buyDipSellHigh(simulationPrices, 14), simulationPrices[simulationPrices.length - 1]);
+
+  currentPriceData = await grabCurrentPrice(stock);
+  currentPrice = currentPriceData.close;
+  console.log(currentPrice, 'currentPrice');
+  stockPrices.push(currentPrice);
+
+
+  drawGraph(stockPrices);
+  endData = applyStrategy(stockPrices, 14, 14);
+  let endBalance = endData.finalCash;
+  let shares = endData.finalShares;
+  let endPrice = endData.finalPrice;
+  let portValue = endData.endingValue;
+  
+  console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
+  console.log(`Portfolio value: $${portValue.toFixed(2)}`);
+  
+  console.log(calculateRSIArray(stockPrices, 14)[stockPrices.length - 1], stockPrices[stockPrices.length - 1]);
+  console.log(portValue, stockPrices[stockPrices.length - 1] / stockPrices[0] * 1000);
+
 }
 
 function draw() {
@@ -54,6 +70,8 @@ function initializeSystem()  {
   simulateButton.position(220, 20);
   simulateButton.mousePressed(runMonteCarlo);
 
+  tickerArray = extractValues(tickerLibrary);
+  console.log(tickerArray);
 }
 
 function updateSystem() {
@@ -61,19 +79,39 @@ function updateSystem() {
 }
 
 function runMonteCarlo() {
-  simulatedPrices = generatePrice(currentPrice);
+  simulationPrices = generatePrice(stockPrices);
+  background(255);
+  drawGraph(stockPrices);
+  drawGraph(simulationPrices, [255, 0, 0]);
 }
 
+function parseHistoricalData(data, length = 1000) {
+  someData = [];
+  for (let i = data.length - length; i < data.length; i++) {
+    someData.push(data[i].close);
+  }
+  return someData;
+}
 
 
 function buyShare() {
   if (cash >= currentPrice) {
-    share++;
+    shares++;
     cash -= currentPrice;
   }
+  console.log(shares, cash);
 }
 
-function drawGraph(priceArray) {
+function sellShare() {
+  if (shares >= 1) {
+    shares--;
+    cash += currentPrice;
+  }
+  console.log(shares, cash);
+
+}
+
+function drawGraph(priceArray, color = [0, 255, 0]) {
   let graphX = 50;
   let graphY = 50;
   
@@ -87,7 +125,7 @@ function drawGraph(priceArray) {
   rect(graphX, graphY, graphW, graphH);
   
   // Draw current price line
-  stroke(0, 255, 0);
+  stroke(color);
   strokeWeight(2);
   
   beginShape();
@@ -106,12 +144,16 @@ function drawGraph(priceArray) {
 
 
 async function grabCurrentPrice(ticker) {
-  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}`;
-  link = `https://eodhd.com/api/real-time/${ticker}.US?api_token=demo&fmt=json`;
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=current`;
   const data = await getData(link);
   return data;
 }
 
+async function grabPriceHistory(ticker) {
+  let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=history`;
+  const data = await getData(link);
+  return data;
+}
 
 async function getData(url) {
   try {
@@ -125,56 +167,40 @@ async function getData(url) {
   }
 }
 
+function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
+  let prices = structuredClone(priceHistory);
+  let currentPrice = priceHistory[priceHistory.length - 1];
 
-function tempGenPrices(initialPrice, averageReturn = 0.00003, volatility = 0.02, steps = 200) {
-  let prices = [initialPrice];
-  let current = initialPrice;
-  
-  for (let i = 0; i < steps; i++) {
-    
-    let u1 = random();
-    let u2 = random();
-    
-    let z = sqrt(-2 * log(u1)) * cos(TAU * u2);
-    
-    let dailyReturn = averageReturn + volatility * z;
-    
-    current *= exp(dailyReturn);
-    prices.push(current);
-  }
-  
-  return prices;
-}
+  let dStep = totalTime / steps; 
 
-function generatePrice(initialPrize, averageReturn = 0.0003, dStep = 1 / 86400, steps = 365, volatility = 0.02) {
-  let prices = [initialPrize];
-  let currentPrice = initialPrize;
+
   for (let i = 0; i < steps; i += dStep) {
 
-    //
     let u1 = random();
     let u2 = random();
     let z0 = Math.sqrt(-2 * Math.log(u1)) *  Math.cos(TAU * u2);
 
-    let dailyReturn = averageReturn + volatility * z0;
-    let drift = (averageReturn - 0.5 * Math.pow(dStep, 2)) * dStep;
-    let diffusion = averageReturn * Math.sqrt(dStep) * z0;
-    let change = Math.exp(drift + diffusion);
+    let drift = (averageReturn - 0.5 * Math.pow(volatility, 2)) * dStep;
+    let diffusion = volatility * Math.sqrt(dStep) * z0;
+    
+    currentPrice *= Math.exp(drift + diffusion);
+    prices.push(currentPrice);
 
   }
 
-
+  return prices;
 }
 
 function comparePrice(priceArray) {
   return priceArray[priceArray.length - 1] > priceArray[0];
 }
 
-function buyDipSellHigh(priceArray, periods) {
+function calculateRSIArray(priceArray, periods) {
   if (!priceArray || priceArray.length <= periods) {
-    return;
+    return [];
   }
 
+  let rsiArray = new Array(priceArray.length).fill(null);
   let totalGain = 0;
   let totalLoss = 0;
 
@@ -191,42 +217,83 @@ function buyDipSellHigh(priceArray, periods) {
   let avgGain = totalGain / periods;
   let avgLoss = totalLoss / periods;
 
+  if (avgLoss === 0) {
+    rsiArray[periods] = 100;
+  }
+  else {
+    rsiArray[periods] = 100 - 100 / (1 + avgGain / avgLoss);
+  }
+
   // Wilder's Smoothing
   for (let i = periods + 1; i < priceArray.length; i++) {
     const difference = priceArray[i] - priceArray[i-1];
+    let currentLoss = 0;
+    let currentGain = 0;
+
     if (difference > 0) {
-      const currentGain = difference;
-      const currentLoss = 0;
+      currentGain = difference;
     }
     else {
-      const currentLoss = -difference;
-      const currentGain = 0;
+      currentLoss = -difference;
     }
+
     avgGain = (avgGain * (periods - 1) + currentGain) / periods;
     avgLoss = (avgLoss * (periods - 1) + currentLoss) / periods;
+
+    if (avgLoss === 0) {
+      rsiArray[i] = 100;
+    } 
+    else {
+      const rs = avgGain / avgLoss;
+      rsiArray[i] = 100 - 100 / (1 + rs);
+    }
   }
 
-
-  const rs = avgGain/avgLoss;
-  const rsi = 100 - 100 / (1 + rs);
-
-  if (rsi > 70) {
-    return 'sell';
-  }
-  else if (rsi < 30) {
-    return 'buy';
-  }
-  else {
-    return 'hold';
-  }
+  return rsiArray;
 }
 
 function applyStrategy(priceArray, periods, startPeriods) {
   let shares = 0;
   let cash = 1000;
 
+  const rsiArray = calculateRSIArray(priceArray, periods);
+  
 
-  for (let i = priceArray)
-  let action = buyDipSellHigh(priceArray, )
+  for (let i = startPeriods; i < priceArray.length; i++) {
+    const currentRSI = rsiArray[i];
+    const currentPrice = priceArray[i];
 
+    if (currentRSI < 20 && cash > 0) {
+      // Goes "all in" with whatever cash is available
+      const sharesToBuy = cash / currentPrice; 
+      shares += sharesToBuy;
+      // console.log(`Buy at: $${currentPrice.toFixed(2)} | Invested: $${cash.toFixed(2)}`);
+      cash = 0; 
+    } 
+    else if (currentRSI > 80 && shares > 0) { 
+      cash += shares * currentPrice;
+      // console.log(`Sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
+      shares = 0;
+    }
+  }
+
+  const finalPrice = priceArray[priceArray.length - 1];
+
+  return {
+    finalCash: cash,
+    finalPrice: finalPrice,
+    finalShares: shares,
+    endingValue: cash + shares * finalPrice
+  };
+}
+
+function checkTicker(ticker) {
+  return tickerArray.includes(ticker); 
+}
+
+function extractValues(obj) {
+  const values = Object.values(obj);
+  return values.map(function(item) {
+    return item.ticker;
+  });
 }
