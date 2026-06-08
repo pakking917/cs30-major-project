@@ -21,7 +21,7 @@ The goal of this project is to build a semi-educational tool that combines mathe
 
 
 **Graphing & Visualization**
-- Render a real-time updating line graph of stock prices
+- Render a real-time updating line graph of stock prices (update: not feasible, it would cost me a lot of money)
 - Scale graph dynamically based on data range
 - Display axes, labels, and time intervals
 
