@@ -228,6 +228,75 @@ function drawTickerLabel() {
 
 // --- Data loading --------------------------------
 
+async function loadStock(ticker) {
+  // Before leaving the current stock, snapshot shares into holdings and persist.
+  flushCurrentStockToHoldings();
+
+  isLoading = true;
+  simPaths = [];
+  simMode = false;
+  simPlaying = false;
+  simFrame = 0;
+  showLoading("Fetching " + ticker + "...");
+
+  let rawHistory = await grabPriceHistory(ticker);
+  if (!rawHistory || rawHistory.length === 0) {
+    isLoading = false;
+    showLoading("No data for " + ticker);
+    return;
+  }
+
+  let slice = rawHistory.slice(-500);
+  ohlcData    = slice.map(d => ({ date: d.date, open: d.open, high: d.high, low: d.low, close: d.close }));
+  closePrices = ohlcData.map(d => d.close);
+  dateLabels  = ohlcData.map(d => d.date);
+
+  showLoading("Fetching current price...");
+  let current = await grabCurrentPrice(ticker);
+  currentPrice = current.close;
+
+  // Append or update today's bar with the live price data.
+  let today    = new Date();
+  let todayStr = today.toISOString().slice(0, 10);
+  if (dateLabels[dateLabels.length - 1] !== todayStr) {
+    ohlcData.push({ date: todayStr, open: cur.open, high: cur.high, low: cur.low, close: cur.close });
+    closePrices.push(cur.close);
+    dateLabels.push(todayStr);
+  }
+  else {
+    ohlcData[ohlcData.length - 1] = { date: todayStr, open: cur.open, high: cur.high, low: cur.low, close: cur.close };
+    closePrices[closePrices.length - 1] = cur.close;
+  }
+
+  // Update this stock's stored price and portfolio value
+  // (I don't update prices for stocks the user hasn't visited due to API limitations)
+  stock = ticker;
+
+  // Restore shares owned
+  shares = holdings.get(stock) || 0;
+
+  // Update the stored price in the portfolio
+  savePortfolio();
+  saveLastTicker(stock);
+
+  isLoading = false;
+  updateSimButtonVisibility();
+  redrawAll();
+}
+
+// --- Buttons --------------------------------
+
+function styleButton(btn, bgHex) {
+  btn.style('background',   bgHex || '#141828');
+  btn.style('color',        '#c3cde1');
+  btn.style('border',       '1px solid #2d3248');
+  btn.style('border-radius','0');
+  btn.style('padding',      '5px 12px');
+  btn.style('font-family',  'Google Sans');
+  btn.style('font-size',    '12px');
+  btn.style('cursor',       'pointer');
+}
+
 function initializeSystem()  {
   buyButton = createButton("Buy 1 Share");
   buyButton.position(20, 20);
@@ -249,37 +318,29 @@ function updateSystem() {
 
 }
 
-function runMonteCarlo() {
-  simulationPrices = generatePrice(stockPrices);
-  background(255);
-  drawGraph(stockPrices);
-  drawGraph(simulationPrices, [255, 0, 0]);
-}
-
-function parseHistoricalData(data, length = 600) {
-  someData = [];
-  for (let i = data.length - length; i < data.length; i++) {
-    someData.push(data[i].close);
-  }
-  return someData;
-}
 
 
 function buyShare() {
-  if (cash >= currentPrice) {
+  if (!isLoading && cash >= currentPrice) {
     shares++;
     cash -= currentPrice;
+    holdings.set(stock, shares);
+    savePortfolio();
   }
-  console.log(shares, cash);
 }
 
 function sellShare() {
-  if (shares >= 1) {
+  if (!isLoading && shares >= 1) {
     shares--;
     cash += currentPrice;
+    if (shares === 0) {
+      holdings.delete(stock);
+    }
+    else {
+      holdings.set(stock, shares);
+    }
+    savePortfolio();
   }
-  console.log(shares, cash);
-
 }
 
 function drawGraph(priceArray, color = [0, 255, 0]) {
@@ -344,25 +405,40 @@ async function getData(url) {
 function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
   let prices = structuredClone(priceHistory);
   let currentPrice = priceHistory[priceHistory.length - 1];
-
+  
   let dStep = totalTime / steps; 
-
-
+  
+  
   for (let i = 0; i < steps; i += dStep) {
-
+    
     let u1 = random();
     let u2 = random();
     let z0 = Math.sqrt(-2 * Math.log(u1)) *  Math.cos(TAU * u2);
-
+    
     let drift = (averageReturn - 0.5 * Math.pow(volatility, 2)) * dStep;
     let diffusion = volatility * Math.sqrt(dStep) * z0;
     
     currentPrice *= Math.exp(drift + diffusion);
     prices.push(currentPrice);
-
+    
   }
-
+  
   return prices;
+}
+
+function runMonteCarlo() {
+  simulationPrices = generatePrice(stockPrices);
+  background(255);
+  drawGraph(stockPrices);
+  drawGraph(simulationPrices, [255, 0, 0]);
+}
+
+function parseHistoricalData(data, length = 600) {
+  someData = [];
+  for (let i = data.length - length; i < data.length; i++) {
+    someData.push(data[i].close);
+  }
+  return someData;
 }
 
 // --- RSI --------------------------------
@@ -371,11 +447,11 @@ function calculateRSIArray(priceArray, periods) {
   if (!priceArray || priceArray.length <= periods) {
     return [];
   }
-
+  
   let rsiArray = new Array(priceArray.length).fill(null);
   let totalGain = 0;
   let totalLoss = 0;
-
+  
   for (let i = 1; i <= periods; i++) {
     const difference = priceArray[i] - priceArray[i-1];
     if (difference > 0) {
