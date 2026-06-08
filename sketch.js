@@ -5,20 +5,31 @@
 // Extra for Experts:
 // - describe what you did to take this project "above and beyond"
 
-let data;
 let tickerLibrary;
 let tickerArray;
-let stockPrices = [];
+
+let ohlcData = [];
+let closePrices = [];
+let dateLabels = [];
+
 let currentPrice = 0;
+let stock = "MCD";
+let isLoading = false;
 
 let cash = 10000;
-
-let stock = "MCD";
-let stockData;
 let shares = 0;
 let portfolioValue = 0;
 
-let simulationPrices = [];
+let holdings = new Map();
+let chartMode = "line";
+
+let simPaths = [];
+let simMode = false;
+let simFrame = 0;
+let simTotalFrames = 0;
+let simPlaying = false;
+let simSpeed = 1;
+let simStepsPerPath = 120;
 
 const PAD        = 60;
 const HUD_W      = 220;
@@ -26,8 +37,6 @@ const RSI_H      = 120;
 const RSI_GAP    = 10;
 const TOP_BAR    = 55;
 
-let buyButton, sellButton, simulateButton;
-let tickerInput, loadButton;
 
 const COL_BG       = [15,  17,  26];
 const COL_PANEL    = [22,  25,  38];
@@ -39,6 +48,12 @@ const COL_SIM      = [255, 160, 40];
 const COL_TEXT     = [200, 210, 230];
 const COL_MUTED    = [100, 110, 140];
 const COL_RSI_LINE = [180, 120, 255];
+
+let buyButton, sellButton, resetButton;
+let chartToggleButton;
+let tickerInput, loadButton;
+let simAddButton, simPlayButton, simPauseButton, simFwdButton, simClearButton;
+
 
 function preload() {
   tickerLibrary = loadJSON('company_tickers.json');
@@ -77,13 +92,102 @@ async function setup() {
 function draw() {
 }
 
-function graphBounds() {
-  let x = PAD;
-  let y = TOP_BAR + PAD;
-  let w = width - PAD - HUD_W - 20;
-  let h = height - y - RSI_H - RSI_GAP - PAD;
-  return { x, y, w, h };
+// --- Local Storage --------------------------------
+
+// Save the last-viewed ticker 
+function saveLastTicker(ticker) {
+  localStorage.setItem('stock_sim_last_ticker', ticker);
 }
+
+// Returns the saved ticker, or null if none exists
+function loadLastTicker() {
+  return localStorage.getItem('stock_sim_last_ticker');
+}
+
+// Serialize portfolio to localStorage with JSON.stringify
+function savePortfolio() {
+  let data = {
+    cash: cash,
+    holdings: Array.from(holdings.entries())
+  };
+  localStorage.setItem('stock_sim_portfolio', JSON.stringify(data));
+}
+
+// Read portfolio from localStorage and restore cash + holdings Map.
+function loadPortfolio() {
+  let raw = localStorage.getItem('stock_sim_portfolio');
+  if (!raw) {
+    return;
+  }
+  try {
+    let data = JSON.parse(raw);
+    cash = (typeof data.cash === 'number') ? data.cash : startingCash;
+    holdings = new Map(data.holdings || []);
+  } 
+  catch (e) {
+    console.warn("Could not parse saved portfolio:", e);
+  }
+}
+
+// Snapshot the current stock's share count into the holdings map,
+function flushCurrentStockToHoldings() {
+  if (shares > 0) {
+    holdings.set(stock, shares);
+  } 
+  else {
+    holdings.delete(stock); // remove zero-share entries
+  }
+  savePortfolio();
+}
+
+// --- Coordinate calculators --------------------------------
+
+function graphBounds() {
+  return {
+    x: PAD,
+    y: TOP_BAR + PAD * 0.6,
+    w: width - PAD - HUD_W - 12,
+    h: height - (TOP_BAR + PAD * 0.6) - RSI_H - RSI_GAP - PAD
+  };
+}
+
+function visibleCloses() { // returns the union of real bars plus the currently-revealed portion
+  if (!simMode || simPaths.length === 0) {
+    return closePrices;
+  }
+  let combined = [...closePrices];
+  for (let p of simPaths) {
+    let slice = p.closes.slice(closePrices.length, closePrices.length + simFrame);
+    combined = combined.concat(slice);
+  }
+  return combined;
+}
+
+function visibleDates() {
+  if (!simMode || simPaths.length === 0) {
+    return dateLabels;
+  }
+  let future = simPaths[0].dates.slice(closePrices.length, closePrices.length + simFrame);
+  return [...dateLabels, ...future];
+}
+
+function visibleLength() { // Total number of points currently shown on the time axis
+  if (!simMode || simPaths.length === 0) {
+    return closePrices.length;
+  }
+  return closePrices.length + simFrame;
+}
+
+function dataX(i, totalLen, graphx, graphw) {
+  return map(i, 0, totalLen - 1, graphx, graphx + graphw);
+}
+
+function priceY(p, low, high, graphy, graphh) {
+  return map(p, low, high, graphy + graphh, graphy);
+}
+
+// --- Graphics --------------------------------
+
 
 function drawHUD() {
   let hx = width - HUD_W + 5;
@@ -207,6 +311,7 @@ function drawGraph(priceArray, color = [0, 255, 0]) {
   endShape();
 }
 
+// --- API --------------------------------
 
 async function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=current`;
@@ -232,6 +337,8 @@ async function getData(url) {
   }
 }
 
+// --- Price Simulation --------------------------------
+
 function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
   let prices = structuredClone(priceHistory);
   let currentPrice = priceHistory[priceHistory.length - 1];
@@ -256,9 +363,7 @@ function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, 
   return prices;
 }
 
-function comparePrice(priceArray) {
-  return priceArray[priceArray.length - 1] > priceArray[0];
-}
+// --- RSI --------------------------------
 
 function calculateRSIArray(priceArray, periods) {
   if (!priceArray || priceArray.length <= periods) {
@@ -329,15 +434,12 @@ function applyStrategy(priceArray, periods, startPeriods) {
     const currentPrice = priceArray[i];
 
     if (currentRSI < 30 && cash > 0) {
-      // Goes "all in" with whatever cash is available
       const sharesToBuy = cash / currentPrice; 
       shares += sharesToBuy;
-      // console.log(`Buy at: $${currentPrice.toFixed(2)} | Invested: $${cash.toFixed(2)}`);
       cash = 0; 
     } 
     else if (currentRSI > 70 && shares > 0) { 
       cash += shares * currentPrice;
-      // console.log(`Sell at: $${currentPrice.toFixed(2)} | Liquidated: ${shares.toFixed(2)} shares`);
       shares = 0;
     }
   }
@@ -352,6 +454,8 @@ function applyStrategy(priceArray, periods, startPeriods) {
   };
 }
 
+// --- Ticker Validation --------------------------------
+
 function checkTicker(ticker) {
   return tickerArray.includes(ticker); 
 }
@@ -362,6 +466,11 @@ function extractValues(obj) {
     return item.ticker;
   });
 }
+
+function comparePrice(priceArray) {
+  return priceArray[priceArray.length - 1] > priceArray[0];
+}
+
 
 // --- Resizing --------------------------------
 
