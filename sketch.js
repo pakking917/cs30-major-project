@@ -343,6 +343,19 @@ function sellShare() {
   }
 }
 
+function resetPort() {
+  cash = startingCash;
+  shares = 0;
+  holdings.clear();
+  savePortfolio();
+}
+
+function addSim() {
+  if (chartMode === "line") {
+    addSimPath(); redrawAll(); 
+  } 
+}
+
 function drawGraph(priceArray, color = [0, 255, 0]) {
   let graphX = 50;
   let graphY = 50;
