@@ -226,6 +226,8 @@ function drawTickerLabel() {
   }
 }
 
+// --- Data loading --------------------------------
+
 function initializeSystem()  {
   buyButton = createButton("Buy 1 Share");
   buyButton.position(20, 20);
