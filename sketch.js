@@ -203,6 +203,87 @@ function drawHUD() {
   noStroke();
   let lineH = 28;
   let curY  = hy + 16;
+
+  function row(label, value, valCol) {
+    fill(...COL_MUTED);
+    textSize(10);
+    textAlign(LEFT, TOP);
+    text(label, hx + 10, curY);
+    fill(...(valCol || COL_TEXT));
+    textSize(12);
+    textAlign(RIGHT, TOP);
+    text(value, hx + hw - 8, curY);
+    textAlign(LEFT, TOP);
+    curY += lineH;
+  }
+
+  function divider() {
+    stroke(...COL_BORDER);
+    strokeWeight(1);
+    line(hx + 6, curY - 4, hx + hw - 6, curY - 4);
+    noStroke();
+    curY += 4;
+  }
+
+  fill(...COL_TEXT);
+  textSize(13);
+  text("PORTFOLIO", hx + 10, curY);
+  curY += lineH * 0.9;
+  divider();
+
+  row("CASH",   "$" + cash.toFixed(2));
+  row("SHARES", shares.toFixed(4) + " " + stock);
+  row("PRICE",  "$" + currentPrice.toFixed(2), COL_BLUE);
+
+  divider();
+
+  let portVal = cash + shares * currentPrice;
+  let pnl     = portVal - startingCash;
+  let pnlPct  = (pnl / startingCash) * 100;
+  let pSign   = pnl >= 0 ? "+" : "";
+  row("TOTAL", "$" + portVal.toFixed(2));
+  row("P&L",   pSign + "$" + pnl.toFixed(2) + " (" + pSign + pnlPct.toFixed(1) + "%)", pnl >= 0 ? COL_GREEN : COL_RED);
+
+  divider();
+
+  let rsiArray = calculateRSIArray(closePrices, 14);
+  let lastRSI  = null;
+  for (let i = rsiArray.length - 1; i >= 0; i--) {
+    if (rsiArray[i] !== null) {
+      lastRSI = rsiArray[i]; 
+      break; 
+    }
+  }
+  if (lastRSI !== null) {
+    let sig    = lastRSI > 70 ? "OVERBOUGHT" : lastRSI < 30 ? "OVERSOLD" : "NEUTRAL";
+    let sigCol = lastRSI > 70 ? COL_RED : lastRSI < 30 ? COL_GREEN : COL_MUTED;
+    row("RSI", lastRSI.toFixed(1) + "  " + sig, sigCol);
+  }
+
+  divider();
+
+  row("HIGH", "$" + max(closePrices).toFixed(2), COL_GREEN);
+  row("LOW",  "$" + min(closePrices).toFixed(2), COL_RED);
+
+  // Other holdings summary (stocks not currently on screen)
+  let otherTickers = Array.from(holdings.entries()).filter(([t, s]) => t !== stock && s > 0);
+  if (otherTickers.length > 0) {
+    divider();
+    fill(...COL_MUTED);
+    textSize(10);
+    textAlign(LEFT, TOP);
+    text("OTHER HOLDINGS", hx + 10, curY);
+    curY += lineH * 0.8;
+    for (let [t, s] of otherTickers) {
+      fill(...COL_TEXT);
+      textSize(11);
+      text(t + ":  " + s.toFixed(4) + " sh", hx + 10, curY);
+      curY += lineH * 0.85;
+      if (curY > hy + hh - 20) {
+        break;
+      } // don't overflow the panel
+    }
+  }
 }
 
 function drawTickerLabel() {
