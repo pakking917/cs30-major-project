@@ -409,19 +409,58 @@ function styleButton(btn, bgHex) {
 
 function initializeSystem()  {
   buyButton = createButton("Buy 1 Share");
-  buyButton.position(20, 20);
   buyButton.mousePressed(buyShare);
+  styleButton(buyButton, '#0b2016');
 
   sellButton = createButton("Sell 1 Share");
-  sellButton.position(120, 20);
   sellButton.mousePressed(sellShare);
+  styleButton(sellButton, '#201010');
 
   simulateButton = createButton("Run Simulation");
-  simulateButton.position(220, 20);
   simulateButton.mousePressed(runMonteCarlo);
 
+  resetButton = createButton("Reset");
+  resetButton.mousePressed(resetPort);
+  styleButton(resetButton);
+
+  chartToggleButton = createButton("Candlestick");
+  chartToggleButton.mousePressed(toggleChartMode);
+  styleButton(chartToggleButton);
+
+  tickerInput = createInput(stock);
+  tickerInput.size(70, 20);
+  tickerInput.style('background',    '#0a0c14');
+  tickerInput.style('color',         '#c3cde1');
+  tickerInput.style('border',        '1px solid #2d3248');
+  tickerInput.style('border-radius', '0');
+  tickerInput.style('font-family',   'Google Sans');
+  tickerInput.style('font-size',     '12px');
+  tickerInput.style('padding',       '3px 6px');
+
+  loadButton = createButton("Load");
+  loadButton.mousePressed(handleLoad);
+  styleButton(loadButton);
+
+  simAddButton   = createButton("Add Path");
+  simPlayButton  = createButton("Play");
+  simPauseButton = createButton("Pause");
+  simFwdButton   = createButton("+10");
+  simClearButton = createButton("Clear Sim");
+
+  simAddButton.mousePressed(addSim);
+  simPlayButton.mousePressed(playSim);
+  simPauseButton.mousePressed(pauseSim);
+  simFwdButton.mousePressed(fwdSim);
+  simClearButton.mousePressed(clearSim);
+
+  let simButtons = [simAddButton, simPlayButton, simPauseButton, simFwdButton, simClearButton];
+  for (let btn of simButtons) {
+    styleButton(btn);
+  }
+
   tickerArray = extractValues(tickerLibrary);
-  console.log(tickerArray);
+  repositionButtons();
+  updateSimButtonVisibility();
 }
 
 function updateSystem() {
