@@ -461,6 +461,31 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
 
   // Map mouseX to nearest data index across the full visible range
   let idx = constrain(round(map(mouseX, x, x + w, 0, totalLen - 1)), 0, totalLen - 1);
+
+  // For indices beyond real data, pick the first sim path for the price value.
+  let price;
+  if (idx < closePrices.length) {
+    price = closePrices[idx];
+  }
+  else if (simPaths.length > 0) {
+    price = simPaths[0].closes[idx] || closePrices[closePrices.length - 1];
+  }
+  else {
+    return;
+  }
+
+  let cx = dataX(idx, totalLen, x, w);
+  let cy = priceY(price, lo, hi, y, h);
+
+  stroke(...COL_CROSS);
+  strokeWeight(0.7);
+  setLineDash([3, 3]);
+  line(cx, y, cx, y + h);
+  line(x, cy, x + w, cy);
+  setLineDash([]);
+
+  let rsiArray = calculateRSIArray (closePrices, 14);
+  
 }
 
 function redrawAll() {
