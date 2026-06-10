@@ -17,8 +17,8 @@ let stock = "MCD";
 let isLoading = false;
 
 let cash = 10000;
+let startingCash = 10000;
 let shares = 0;
-let portfolioValue = 0;
 
 let holdings = new Map();
 let chartMode = "line";
@@ -29,7 +29,7 @@ let simFrame = 0;
 let simTotalFrames = 0;
 let simPlaying = false;
 let simSpeed = 1;
-let simStepsPerPath = 120;
+let simStepsPerPath = 1000;
 
 const PAD        = 60;
 const HUD_W      = 220;
@@ -61,35 +61,32 @@ function preload() {
 
 async function setup() {
   createCanvas(windowWidth, windowHeight);
+  background(...COL_BG);
+  textFont('Google Sans');
   initializeSystem();
-  stockData = await grabPriceHistory(stock);
-  
 
-  stockPrices = parseHistoricalData(stockData);
+  loadPortfolio();
 
+  let saved = loadLastTicker();
+  if (saved) {
+    stock = saved;
+  }
 
-  currentPriceData = await grabCurrentPrice(stock);
-  currentPrice = currentPriceData.close;
-  console.log(currentPrice, 'currentPrice');
-  stockPrices.push(currentPrice);
-
-
-  drawGraph(stockPrices);
-  endData = applyStrategy(stockPrices, 14, 14);
-  let endBalance = endData.finalCash;
-  let shares = endData.finalShares;
-  let endPrice = endData.finalPrice;
-  let portValue = endData.endingValue;
-  
-  console.log(`Ending Balance: $${endBalance.toFixed(2)}, Ending Price: $${endPrice.toFixed(2)}, Shares: ${shares.toFixed(2)}`);
-  console.log(`Portfolio value: $${portValue.toFixed(2)}`);
-  
-  console.log(calculateRSIArray(stockPrices, 14)[stockPrices.length - 1], stockPrices[stockPrices.length - 1]);
-  console.log(portValue, stockPrices[stockPrices.length - 1] / stockPrices[0] * 1000);
-
+  showLoading("Loading " + stock + "...");
+  await loadStock(stock);
 }
 
 function draw() {
+  if (isLoading) {
+    return;
+  }
+  if (simMode && simPlaying && simPaths.length > 0) {
+    simFrame = min(simFrame + simSpeed, simTotalFrames);
+    if (simFrame >= simTotalFrames) {
+      simPlaying = false;
+    }
+  }
+  redrawAll();
 }
 
 // --- Local Storage --------------------------------
@@ -395,6 +392,41 @@ function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
   }
 }
 
+// --- Graphics: Simulation Paths --------------------------------
+
+function drawSimPaths(x, y, w, h, lo, hi, totalLen) {
+  let realLen = closePrices.length;
+
+  for (let p of simPaths) {
+    let futureEnd = min(realLen + simFrame, p.closes.length);
+    stroke(...p.col);
+    strokeWeight(1.5);
+    noFill();
+    beginShape();
+    for (let i = realLen - 1; i < futureEnd; i++) {
+      vertex(dataX(i, totalLen, x, w), priceY(p.closes[i], lo, hi, y, h));
+    }
+    endShape();
+  }
+
+  // Dashed divider between real data and simulated region
+  let divX = dataX(realLen - 1, totalLen, x, w);
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  setLineDash([4, 4]);
+  line(divX, y, divX, y + h);
+  setLineDash([]);
+  noStroke();
+  fill(...COL_MUTED);
+  textSize(10);
+  textAlign(LEFT, TOP);
+  text("SIMULATED →", divX + 4, y + 4);
+}
+
+function setLineDash(pattern) {
+  drawingContext.setLineDash(pattern);
+}
+
 function redrawAll() {
   background(...COL_BG);
   if (closePrices.length === 0) {
@@ -454,13 +486,13 @@ async function loadStock(ticker) {
   let today    = new Date();
   let todayStr = today.toISOString().slice(0, 10);
   if (dateLabels[dateLabels.length - 1] !== todayStr) {
-    ohlcData.push({ date: todayStr, open: cur.open, high: cur.high, low: cur.low, close: cur.close });
-    closePrices.push(cur.close);
+    ohlcData.push({ date: todayStr, open: current.open, high: current.high, low: current.low, close: current.close });
+    closePrices.push(current.close);
     dateLabels.push(todayStr);
   }
   else {
-    ohlcData[ohlcData.length - 1] = { date: todayStr, open: cur.open, high: cur.high, low: cur.low, close: cur.close };
-    closePrices[closePrices.length - 1] = cur.close;
+    ohlcData[ohlcData.length - 1] = { date: todayStr, open: current.open, high: current.high, low: current.low, close: current.close };
+    closePrices[closePrices.length - 1] = current.close;
   }
 
   // Update this stock's stored price and portfolio value
@@ -583,39 +615,9 @@ function resetPort() {
 
 function addSim() {
   if (chartMode === "line") {
-    addSimPath(); redrawAll(); 
+    addSimPath(); 
+    redrawAll(); 
   } 
-}
-
-function drawGraph(priceArray, color = [0, 255, 0]) {
-  let graphX = 50;
-  let graphY = 50;
-  
-  let graphW = width - graphX * 2;
-  let graphH = height - graphY * 2;
-  
-  // Border
-  stroke(255);
-  noFill();
-  
-  rect(graphX, graphY, graphW, graphH);
-  
-  // Draw current price line
-  stroke(color);
-  strokeWeight(2);
-  
-  beginShape();
-  
-  for (let i = 0; i < priceArray.length; i++) {
-    
-    let x = map(i, 0, priceArray.length - 1, graphX, graphX + graphW);
-    
-    let y = map(priceArray[i], min(priceArray), max(priceArray), graphY + graphH, graphY);
-    
-    vertex(x, y);
-  }
-  
-  endShape();
 }
 
 // --- API --------------------------------
@@ -670,11 +672,70 @@ function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, 
   return prices;
 }
 
-function runMonteCarlo() {
-  simulationPrices = generatePrice(stockPrices);
-  background(255);
-  drawGraph(stockPrices);
-  drawGraph(simulationPrices, [255, 0, 0]);
+function addSimPath() {
+  if (closePrices.length === 0) {
+    return;
+  }
+
+  let futurePrices = generatePrice(closePrices, 0.0003, 0.02, 100, simStepsPerPath);
+  let futureDates  = generateFutureDates(dateLabels[dateLabels.length - 1], simStepsPerPath);
+  let fullCloses   = [...closePrices, ...futurePrices.slice(closePrices.length)];
+  let fullDates    = [...dateLabels,  ...futureDates];
+
+  let hue = pickDistinctHue();
+  colorMode(HSB, 360, 100, 100);
+  let c = color(hue, 80, 90);
+  colorMode(RGB, 255);
+  let col = [red(c), green(c), blue(c)];
+
+  simPaths.push({ closes: fullCloses, dates: fullDates, col, hue });
+  simTotalFrames = simStepsPerPath;
+  if (simPaths.length === 1) {
+    simFrame = 0; simPlaying = false; 
+  }
+
+  simMode = true;
+  updateSimButtonVisibility();
+}
+
+function pickDistinctHue() {
+  let forbidden = [0, 15, 345, 120, 130];
+  let candidate = (simPaths.length * 53 + 200) % 360;
+  while (forbidden.some(h => abs(candidate - h) < 25)) {
+    candidate = (candidate + 37) % 360;
+  }
+  return candidate;
+}
+
+function generateFutureDates(lastDateStr, steps) {
+  let dates = [];
+  let d = new Date(lastDateStr);
+  for (let i = 0; i < steps; i++) {
+    d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6) {
+      d.setDate(d.getDate() + 1);
+    }
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+function clearSim() {
+  simPaths = []; simMode = false; simPlaying = false; simFrame = 0;
+  updateSimButtonVisibility();
+  redrawAll();
+}
+
+function playSim()  {
+  if (simMode && simPaths.length > 0) {
+    simPlaying = true;
+  } 
+}
+function pauseSim() {
+  simPlaying = false; 
+}
+function fwdSim()   {
+  simFrame = min(simFrame + 10, simTotalFrames); redrawAll(); 
 }
 
 function parseHistoricalData(data, length = 600) {
