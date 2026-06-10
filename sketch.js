@@ -493,7 +493,9 @@ function redrawAll() {
 
 async function loadStock(ticker) {
   // Before leaving the current stock, snapshot shares into holdings and persist.
-  flushCurrentStockToHoldings();
+  if (closePrices.length > 0) {
+    flushCurrentStockToHoldings();
+  }
 
   isLoading = true;
   simPaths = [];
