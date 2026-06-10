@@ -147,7 +147,7 @@ function graphBounds() {
     x: PAD,
     y: TOP_BAR + PAD * 0.6,
     w: width - PAD - HUD_W - 12,
-    h: height - (TOP_BAR + PAD * 0.6) - RSI_H - RSI_GAP - PAD
+    h: height - (TOP_BAR + PAD * 0.6) - PAD
   };
 }
 
@@ -188,7 +188,7 @@ function priceY(p, low, high, graphy, graphh) {
 
 // --- Graphics --------------------------------
 
-
+// --- Graphics: HUD --------------------------------
 function drawHUD() {
   let hx = width - HUD_W + 5;
   let hy = TOP_BAR + PAD;
@@ -266,6 +266,8 @@ function drawHUD() {
   row("LOW",  "$" + min(closePrices).toFixed(2), COL_RED);
 }
 
+// --- Graphics: Ticker --------------------------------
+
 function drawTickerLabel() {
   let { x, y } = graphBounds();
   fill(...COL_TEXT);
@@ -286,6 +288,8 @@ function drawTickerLabel() {
     text(sign + "$" + change.toFixed(2) + " (" + sign + changePct.toFixed(2) + "%)", x + 70, y - 6);
   }
 }
+
+// --- Graphics: Grid --------------------------------
 
 function drawGridAndAxes(x, y, w, h, lo, hi, totalLen) {
   let vDates = visibleDates();
@@ -336,6 +340,87 @@ function formatDate(d) {
   let months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return months[parseInt(parts[1]) - 1] + " " + parseInt(parts[2]);
 }
+
+// --- Graphics: Loading Screen --------------------------------
+
+function showLoading(msg) {
+  background(...COL_BG);
+  fill(...COL_TEXT);
+  noStroke();
+  textFont('Google Sans');
+  textSize(15);
+  textAlign(CENTER, CENTER);
+  text(msg, width / 2, height / 2);
+}
+
+// --- Graphics: Charts --------------------------------
+
+function drawMainChart(x, y, w, h, lo, hi, totalLen) {
+  if (chartMode === "line") {
+    drawLineChart(closePrices, x, y, w, h, lo, hi, totalLen, COL_GREEN);
+  }
+  else {
+    drawCandleChart(x, y, w, h, lo, hi, totalLen);
+  }
+}
+
+function drawLineChart(prices, x, y, w, h, lo, hi, totalLen, col) {
+  stroke(...col);
+  strokeWeight(1.5);
+  noFill();
+  beginShape();
+  for (let i = 0; i < prices.length; i++) {
+    vertex(dataX(i, totalLen, x, w), priceY(prices[i], lo, hi, y, h));
+  }
+  endShape();
+}
+
+function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
+  let slotW   = w / totalLen;
+  let candleW = max(1, slotW * 0.7);
+  for (let i = 0; i < ohlcData.length; i++) {
+    let d      = ohlcData[i];
+    let cx     = dataX(i, totalLen, x, w);
+    let openY  = priceY(d.open,  lo, hi, y, h);
+    let closeY = priceY(d.close, lo, hi, y, h);
+    let highY  = priceY(d.high,  lo, hi, y, h);
+    let lowY   = priceY(d.low,   lo, hi, y, h);
+    let col    = (d.close >= d.open) ? COL_GREEN : COL_RED;
+    stroke(...col);
+    strokeWeight(1);
+    line(cx, highY, cx, lowY);
+    fill(...col);
+    noStroke();
+    rect(cx - candleW / 2, min(openY, closeY), candleW, max(1, abs(openY - closeY)));
+  }
+}
+
+function redrawAll() {
+  background(...COL_BG);
+  if (closePrices.length === 0) {
+    return;
+  }
+
+  // Y range: min/max across real and simulated data
+  let vis   = visibleCloses();
+  let lo    = min(vis);
+  let hi    = max(vis);
+  let range = hi - lo || 1;
+  lo -= range * 0.05;
+  hi += range * 0.05;
+
+  let totalLen = visibleLength();
+  let { x, y, w, h } = graphBounds();
+
+  drawGridAndAxes(x, y, w, h, lo, hi, totalLen);
+  drawMainChart(x, y, w, h, lo, hi, totalLen);
+  if (simMode && simPaths.length > 0) {
+    drawSimPaths(x, y, w, h, lo, hi, totalLen);
+  }
+  drawHUD();
+  drawTickerHeader(x, y);
+}
+
 // --- Data loading --------------------------------
 
 async function loadStock(ticker) {
@@ -415,9 +500,6 @@ function initializeSystem()  {
   sellButton = createButton("Sell 1 Share");
   sellButton.mousePressed(sellShare);
   styleButton(sellButton, '#201010');
-
-  simulateButton = createButton("Run Simulation");
-  simulateButton.mousePressed(runMonteCarlo);
 
   resetButton = createButton("Reset");
   resetButton.mousePressed(resetPort);
