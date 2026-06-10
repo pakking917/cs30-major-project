@@ -286,6 +286,29 @@ function drawTickerLabel() {
   }
 }
 
+function drawTickerHeader(x, y) {
+  noStroke();
+  fill(...COL_TEXT);
+  textFont('Google Sans');
+  textSize(16);
+  textAlign(LEFT, BOTTOM);
+  text(stock, x, y - 6);
+
+  if (closePrices.length > 1) {
+    let chg    = closePrices[closePrices.length - 1] - closePrices[0];
+    let chgPct = chg / closePrices[0] * 100;
+    fill(chg >= 0 ? COL_GREEN : COL_RED);
+    textSize(12);
+    let s = chg >= 0 ? "+" : "";
+    text(s + "$" + chg.toFixed(2) + "  " + s + chgPct.toFixed(2) + "%", x + 55, y - 6);
+  }
+
+  fill(...COL_MUTED);
+  textSize(11);
+  textAlign(RIGHT, BOTTOM);
+  text(chartMode === "candle" ? "CANDLESTICK" : "LINE", x + (width - PAD - HUD_W - 12) - 4, y - 6);
+}
+
 // --- Graphics: Grid --------------------------------
 
 function drawGridAndAxes(x, y, w, h, lo, hi, totalLen) {
@@ -577,11 +600,60 @@ function initializeSystem()  {
   updateSimButtonVisibility();
 }
 
-function updateSystem() {
-
+function repositionButtons() {
+  let nextX = 10, by = 12, gap = 6;
+  function place(btn) {
+    btn.position(nextX, by); 
+    nextX += btn.elt.offsetWidth + gap; 
+  }
+  place(buyButton);
+  place(sellButton);
+  place(resetButton);
+  nextX += 14;
+  place(chartToggleButton);
+  nextX += 14;
+  place(simAddButton);
+  place(simPlayButton);
+  place(simPauseButton);
+  place(simFwdButton);
+  place(simClearButton);
+  tickerInput.position(width - HUD_W - 140, by);
+  loadButton.position(width - HUD_W - 55, by);
 }
 
+function updateSimButtonVisibility() {
+  let show = simMode && simPaths.length > 0;
+  simPlayButton.elt.style.display  = show ? "inline-block" : "none";
+  simPauseButton.elt.style.display = show ? "inline-block" : "none";
+  simFwdButton.elt.style.display   = show ? "inline-block" : "none";
+  simClearButton.elt.style.display = show ? "inline-block" : "none";
+  simAddButton.elt.style.display   = (chartMode === "line") ? "inline-block" : "none";
+}
 
+function toggleChartMode() {
+  if (chartMode === "line") {
+    chartMode = "candle";
+    chartToggleButton.html("Line Chart");
+    clearSim();
+  }
+  else {
+    chartMode = "line";
+    chartToggleButton.html("Candlestick");
+  }
+  updateSimButtonVisibility();
+  redrawAll();
+}
+
+async function handleLoad() {
+  let t = tickerInput.value().toUpperCase().trim();
+  if (!t) {
+    return;
+  }
+  if (!checkTicker(t)) {
+    showLoading("Unknown ticker: " + t); return; 
+  }
+  await loadStock(t);
+}
 
 function buyShare() {
   if (!isLoading && cash >= currentPrice) {
