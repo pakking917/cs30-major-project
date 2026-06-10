@@ -450,6 +450,19 @@ function setLineDash(pattern) {
   drawingContext.setLineDash(pattern);
 }
 
+// --- Graphics: Simulation Paths --------------------------------
+function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
+  if (mouseX < x || mouseX > x + w || mouseY < y || mouseY > y + h) {
+    return;
+  }
+
+  let vDates  = visibleDates();
+  let vCloses = visibleCloses();
+
+  // Map mouseX to nearest data index across the full visible range
+  let idx = constrain(round(map(mouseX, x, x + w, 0, totalLen - 1)), 0, totalLen - 1);
+}
+
 function redrawAll() {
   background(...COL_BG);
   if (closePrices.length === 0) {
