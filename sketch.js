@@ -264,26 +264,6 @@ function drawHUD() {
 
   row("HIGH", "$" + max(closePrices).toFixed(2), COL_GREEN);
   row("LOW",  "$" + min(closePrices).toFixed(2), COL_RED);
-
-  // Other holdings summary (stocks not currently on screen)
-  let otherTickers = Array.from(holdings.entries()).filter(([t, s]) => t !== stock && s > 0);
-  if (otherTickers.length > 0) {
-    divider();
-    fill(...COL_MUTED);
-    textSize(10);
-    textAlign(LEFT, TOP);
-    text("OTHER HOLDINGS", hx + 10, curY);
-    curY += lineH * 0.8;
-    for (let [t, s] of otherTickers) {
-      fill(...COL_TEXT);
-      textSize(11);
-      text(t + ":  " + s.toFixed(4) + " sh", hx + 10, curY);
-      curY += lineH * 0.85;
-      if (curY > hy + hh - 20) {
-        break;
-      } // don't overflow the panel
-    }
-  }
 }
 
 function drawTickerLabel() {
@@ -307,6 +287,55 @@ function drawTickerLabel() {
   }
 }
 
+function drawGridAndAxes(x, y, w, h, lo, hi, totalLen) {
+  let vDates = visibleDates();
+  textFont('Google Sans');
+
+  // Y-axis: 5 evenly-spaced price gridlines with labels
+  const Y_TICKS = 5;
+  for (let i = 0; i <= Y_TICKS; i++) {
+    let val = map(i, 0, Y_TICKS, lo, hi);
+    let ty  = priceY(val, lo, hi, y, h);
+    stroke(...COL_BORDER);
+    strokeWeight(0.5);
+    line(x, ty, x + w, ty);
+    noStroke();
+    fill(...COL_MUTED);
+    textSize(10);
+    textAlign(RIGHT, CENTER);
+    text("$" + val.toFixed(2), x - 5, ty);
+  }
+
+  // X-axis: ~7 evenly-spaced date labels
+  const X_TICKS = min(7, totalLen - 1);
+  for (let i = 0; i <= X_TICKS; i++) {
+    let idx = floor(map(i, 0, X_TICKS, 0, totalLen - 1));
+    let tx  = dataX(idx, totalLen, x, w);
+    stroke(...COL_BORDER);
+    strokeWeight(0.5);
+    line(tx, y, tx, y + h);
+    noStroke();
+    fill(...COL_MUTED);
+    textSize(10);
+    textAlign(CENTER, TOP);
+    text(formatDate(vDates[idx] || ""), tx, y + h + 4);
+  }
+
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  noFill();
+  rect(x, y, w, h);
+}
+
+function formatDate(d) {
+
+  let parts = d.split("-");
+  if (parts.length < 3) {
+    return d;
+  }
+  let months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return months[parseInt(parts[1]) - 1] + " " + parseInt(parts[2]);
+}
 // --- Data loading --------------------------------
 
 async function loadStock(ticker) {
