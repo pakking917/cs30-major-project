@@ -60,7 +60,7 @@ function preload() {
 }
 
 async function setup() {
-  createCanvas(windowWidth, windowHeight);
+  createCanvas(max(800, windowWidth), max(450, windowHeight));
   background(...COL_BG);
   textFont('Google Sans');
   initializeSystem();
@@ -188,7 +188,7 @@ function priceY(p, low, high, graphy, graphh) {
 // --- Graphics: HUD --------------------------------
 function drawHUD() {
   let hx = width - HUD_W + 5;
-  let hy = TOP_BAR + PAD;
+  let hy = TOP_BAR;
   let hw = HUD_W - 15;
   let hh = height - hy - PAD * 0.5;
 
@@ -224,7 +224,7 @@ function drawHUD() {
 
   fill(...COL_TEXT);
   textSize(13);
-  text("PORTFOLIO", hx + 10, curY);
+  text("PORTFOLIO", hx + 45, curY);
   curY += lineH * 0.9;
   divider();
 
@@ -930,9 +930,7 @@ function comparePrice(priceArray) {
 // --- Resizing --------------------------------
 
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  // Reposition the ticker input/button on resize
-  tickerInput.position(width - HUD_W - 160, 12);
-  loadButton.position(width - HUD_W - 70, 12);
+  resizeCanvas(max(800, windowWidth), max(450, windowHeight));
+  repositionButtons();
   redrawAll();
 }
