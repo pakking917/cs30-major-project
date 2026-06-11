@@ -607,7 +607,7 @@ function drawInfoPanel() {
   textAlign(LEFT, TOP);
   text("SYSTEM DOCUMENTATION & GUIDE", x + 50, y + 40);
   
-  textSize(11);
+  textSize(width / 50);
   let panelText = 
     "• RSI (Relative Strength Index):\n" +
     "  A momentum oscillator tracking structural asset velocity between 0 and 100.\n" +
