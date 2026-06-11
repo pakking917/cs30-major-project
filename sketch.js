@@ -47,7 +47,9 @@ const COL_BLUE     = [80,  160, 255];
 const COL_SIM      = [255, 160, 40];
 const COL_TEXT     = [200, 210, 230];
 const COL_MUTED    = [100, 110, 140];
-const COL_RSI_LINE = [180, 120, 255];
+const COL_RSI      = [180, 120, 255];
+const COL_CROSS    = [180, 180, 180];
+
 
 let buyButton, sellButton, resetButton;
 let chartToggleButton;
@@ -144,7 +146,7 @@ function graphBounds() {
     x: PAD,
     y: TOP_BAR + PAD * 0.6,
     w: width - PAD - HUD_W - 12,
-    h: height - (TOP_BAR + PAD * 0.6) - PAD
+    h: height - (TOP_BAR + PAD * 0.6) - RSI_H - RSI_GAP - PAD
   };
 }
 
@@ -415,6 +417,64 @@ function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
   }
 }
 
+// --- Graphics: RSI Chart --------------------------------
+function drawRSI(x, y, w, h, totalLen) {
+  let rsiY     = y + h + RSI_GAP + 18;
+  let rsiH     = RSI_H;
+  let rsiArray = calculateRSIArray(closePrices, 14);
+
+  fill(...COL_PANEL);
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  rect(x, rsiY, w, rsiH);
+
+  let y70 = map(70, 0, 100, rsiY + rsiH, rsiY);
+  let y30 = map(30, 0, 100, rsiY + rsiH, rsiY);
+  stroke(...COL_RED);   strokeWeight(0.6); line(x, y70, x + w, y70);
+  stroke(...COL_GREEN); strokeWeight(0.6); line(x, y30, x + w, y30);
+
+  stroke(...COL_RSI);
+  strokeWeight(1.4);
+  noFill();
+  beginShape();
+  for (let i = 0; i < rsiArray.length; i++) {
+    if (rsiArray[i] === null) {
+      continue;
+    }
+    vertex(dataX(i, totalLen, x, w), map(rsiArray[i], 0, 100, rsiY + rsiH, rsiY));
+  }
+  endShape();
+
+  noStroke();
+  fill(...COL_MUTED);
+  textSize(10);
+  textAlign(RIGHT, CENTER);
+  text("70", x - 4, y70);
+  text("30", x - 4, y30);
+  textAlign(LEFT, TOP);
+  fill(...COL_RSI);
+  text("RSI(14)", x + 4, rsiY + 3);
+
+  let lastRSI = null;
+  for (let i = rsiArray.length - 1; i >= 0; i--) {
+    if (rsiArray[i] !== null) {
+      lastRSI = rsiArray[i]; break; 
+    }
+  }
+  if (lastRSI !== null) {
+    fill(lastRSI > 70 ? COL_RED : lastRSI < 30 ? COL_GREEN : COL_TEXT);
+    textAlign(RIGHT, TOP);
+    text(lastRSI.toFixed(1), x + w - 4, rsiY + 3);
+  }
+}
+
+function drawSeparator(x, y, w, h) {
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  line(x, y + h + 1, x + w, y + h + 1);
+}
+
+
 // --- Graphics: Simulation Paths --------------------------------
 
 function drawSimPaths(x, y, w, h, lo, hi, totalLen) {
@@ -450,7 +510,7 @@ function setLineDash(pattern) {
   drawingContext.setLineDash(pattern);
 }
 
-// --- Graphics: Simulation Paths --------------------------------
+// --- Graphics: Crosshair --------------------------------
 function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   if (mouseX < x || mouseX > x + w || mouseY < y || mouseY > y + h) {
     return;
@@ -484,8 +544,38 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   line(x, cy, x + w, cy);
   setLineDash([]);
 
+  fill(...COL_BG);
+  noStroke();
+  rect(0, cy - 9, x - 1, 18);
+  fill(...COL_TEXT);
+  textAlign(RIGHT, CENTER);
+  textSize(10);
+  text("$" + price.toFixed(2), x - 3, cy);
+
   let rsiArray = calculateRSIArray (closePrices, 14);
-  
+  let rsiVal   = (idx < rsiArray.length) ? rsiArray[idx] : null;
+  let tipLines = [vDates[idx] || ("Day " + idx), "$" + price.toFixed(2)];
+  if (rsiVal !== null) {
+    tipLines.push("RSI: " + rsiVal.toFixed(1));
+  }
+
+  let tipW = 105, tipH = tipLines.length * 16 + 10;
+  let tipX = cx + 8, tipY = constrain(cy - tipH / 2, y, y + h - tipH);
+  if (tipX + tipW > x + w) {
+    tipX = cx - tipW - 8;
+  }
+
+  fill(...COL_PANEL);
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  rect(tipX, tipY, tipW, tipH);
+  noStroke();
+  fill(...COL_TEXT);
+  textAlign(LEFT, TOP);
+  textSize(10);
+  for (let i = 0; i < tipLines.length; i++) {
+    text(tipLines[i], tipX + 6, tipY + 5 + i * 16);
+  }
 }
 
 function redrawAll() {
@@ -512,6 +602,9 @@ function redrawAll() {
   }
   drawHUD();
   drawTickerHeader(x, y);
+  drawCrosshair(x, y, w, h, lo, hi, totalLen);
+  drawRSI(x, y, w, h, totalLen);
+  drawSeparator(x, y, w, h);
 }
 
 // --- Data loading --------------------------------
