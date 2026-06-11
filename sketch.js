@@ -19,8 +19,10 @@ let isLoading = false;
 let cash = 10000;
 let startingCash = 10000;
 let shares = 0;
+let quantityInput;
 
 let holdings = new Map();
+let lastPrices = new Map();
 let chartMode = "line";
 
 let simPaths = [];
@@ -55,6 +57,9 @@ let buyButton, sellButton, resetButton;
 let chartToggleButton;
 let tickerInput, loadButton;
 let simAddButton, simPlayButton, simPauseButton, simFwdButton, simClearButton;
+
+let showInfo = false;
+let infoButton;
 
 
 function preload() {
@@ -107,7 +112,8 @@ function loadLastTicker() {
 function savePortfolio() {
   let data = {
     cash: cash,
-    holdings: Array.from(holdings.entries())
+    holdings: Array.from(holdings.entries()),
+    lastPrices: Array.from(lastPrices.entries())
   };
   localStorage.setItem('stock_sim_portfolio', JSON.stringify(data));
 }
@@ -122,6 +128,7 @@ function loadPortfolio() {
     let data = JSON.parse(raw);
     cash = (typeof data.cash === 'number') ? data.cash : startingCash;
     holdings = new Map(data.holdings || []);
+    lastPrices = new Map(data.lastPrices || []);
   } 
   catch (e) {
     console.warn("Could not parse saved portfolio:", e);
@@ -236,7 +243,13 @@ function drawHUD() {
 
   divider();
 
-  let portVal = cash + shares * currentPrice;
+  let totalHoldingsValue = 0;
+  for (let [t, sCount] of holdings.entries()) {
+    let p = lastPrices.get(t) || 0;
+    if (t === stock) p = currentPrice; // Prioritize real-time price updates
+    totalHoldingsValue += sCount * p;
+  }
+  let portVal = cash + totalHoldingsValue;
   let pnl     = portVal - startingCash;
   let pnlPct  = (pnl / startingCash) * 100;
   let pSign   = pnl >= 0 ? "+" : "";
@@ -578,6 +591,37 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   }
 }
 
+// --- Graphics: Crosshair --------------------------------
+
+function drawInfoPanel() {
+  let { x, y, w, h } = graphBounds();
+  fill(22, 25, 38, 245);
+  stroke(...COL_BORDER);
+  strokeWeight(1);
+  rect(x + 30, y + 20, w - 60, h + RSI_H, 6);
+  
+  noStroke();
+  fill(...COL_TEXT);
+  textFont('Google Sans');
+  textSize(14);
+  textAlign(LEFT, TOP);
+  text("SYSTEM DOCUMENTATION & GUIDE", x + 50, y + 40);
+  
+  textSize(11);
+  let panelText = 
+    "• RSI (Relative Strength Index):\n" +
+    "  A momentum oscillator tracking structural asset velocity between 0 and 100.\n" +
+    "  - Readings > 70 suggest an OVERBOUGHT condition (potential drop execution).\n" +
+    "  - Readings < 30 suggest an OVERSOLD condition (potential rally baseline).\n\n" +
+    "• SIMULATION ENGINE:\n" +
+    "  Generates asset path variants leveraging Geometric Brownian Motion (GBM).\n" +
+    "  Models drift trends against localized standard deviations parsed from historical close data.\n\n" +
+    "• TIMELINE CONTROLS:\n" +
+    "  - Scroll Wheel: Dynamically scale layout width expansion / compression along X-Axis.\n" +
+    "  - Mouse Drag: Shift and slide horizontally through structural dataset increments.";
+  text(panelText, x + 50, y + 75, w - 100);
+}
+
 function redrawAll() {
   background(...COL_BG);
   if (closePrices.length === 0) {
@@ -605,6 +649,10 @@ function redrawAll() {
   drawCrosshair(x, y, w, h, lo, hi, totalLen);
   drawRSI(x, y, w, h, totalLen);
   drawSeparator(x, y, w, h);
+
+  if (showInfo) {
+    drawInfoPanel();
+  }
 }
 
 // --- Data loading --------------------------------
@@ -637,6 +685,7 @@ async function loadStock(ticker) {
   showLoading("Fetching current price...");
   let current = await grabCurrentPrice(ticker);
   currentPrice = current.close;
+  lastPrices.set(ticker, currentPrice);
 
   // Append or update today's bar with the live price data.
   let today    = new Date();
@@ -681,13 +730,22 @@ function styleButton(btn, bgHex) {
 }
 
 function initializeSystem()  {
-  buyButton = createButton("Buy 1 Share");
+  buyButton = createButton("Buy Shares");
   buyButton.mousePressed(buyShare);
   styleButton(buyButton, '#0b2016');
 
-  sellButton = createButton("Sell 1 Share");
+  sellButton = createButton("Sell Shares");
   sellButton.mousePressed(sellShare);
   styleButton(sellButton, '#201010');
+
+  quantityInput = createInput("1");
+  quantityInput.size(45, 20);
+  quantityInput.style('background', '#0a0c14');
+  quantityInput.style('color', '#c3cde1');
+  quantityInput.style('border', '1px solid #2d3248');
+  quantityInput.style('font-family', 'Google Sans');
+  quantityInput.style('font-size', '12px');
+  quantityInput.style('padding', '3px 6px');
 
   resetButton = createButton("Reset");
   resetButton.mousePressed(resetPort);
@@ -696,6 +754,10 @@ function initializeSystem()  {
   chartToggleButton = createButton("Candlestick");
   chartToggleButton.mousePressed(toggleChartMode);
   styleButton(chartToggleButton);
+
+  infoButton = createButton("Info");
+  infoButton.mousePressed(infoTab);
+  styleButton(infoButton);
 
   tickerInput = createInput(stock);
   tickerInput.size(70, 20);
@@ -739,12 +801,14 @@ function repositionButtons() {
     btn.position(nextX, by); 
     nextX += btn.elt.offsetWidth + gap; 
   }
+  place(quantityInput);
   place(buyButton);
   place(sellButton);
   place(resetButton);
   nextX += 14;
   place(chartToggleButton);
   nextX += 14;
+  place(infoButton);
   place(simAddButton);
   place(simPlayButton);
   place(simPauseButton);
@@ -761,6 +825,8 @@ function updateSimButtonVisibility() {
   simFwdButton.elt.style.display   = show ? "inline-block" : "none";
   simClearButton.elt.style.display = show ? "inline-block" : "none";
   simAddButton.elt.style.display   = (chartMode === "line") ? "inline-block" : "none";
+
+  repositionButtons();
 }
 
 function toggleChartMode() {
@@ -789,21 +855,28 @@ async function handleLoad() {
 }
 
 function buyShare() {
-  if (!isLoading && cash >= currentPrice) {
-    shares++;
-    cash -= currentPrice;
+  let qty = parseFloat(quantityInput.value());
+  if (isNaN(qty) || qty <= 0) return;
+  
+  let cost = qty * currentPrice;
+  if (!isLoading && cash >= cost) {
+    shares += qty;
+    cash -= cost;
     holdings.set(stock, shares);
     savePortfolio();
   }
 }
 
 function sellShare() {
-  if (!isLoading && shares >= 1) {
-    shares--;
-    cash += currentPrice;
+  let qty = parseFloat(quantityInput.value());
+  if (isNaN(qty) || qty <= 0) return;
+
+  if (!isLoading && shares >= qty) {
+    shares -= qty;
+    cash += qty * currentPrice;
     if (shares === 0) {
       holdings.delete(stock);
-    }
+    } 
     else {
       holdings.set(stock, shares);
     }
@@ -812,10 +885,13 @@ function sellShare() {
 }
 
 function resetPort() {
-  cash = startingCash;
-  shares = 0;
-  holdings.clear();
-  savePortfolio();
+  if (confirm("Are you sure you want to clear your current portfolio holdings and balance configurations?")) {
+    cash = startingCash;
+    shares = 0;
+    holdings.clear();
+    savePortfolio();
+    clearSim();
+  }
 }
 
 function addSim() {
@@ -823,6 +899,11 @@ function addSim() {
     addSimPath(); 
     redrawAll(); 
   } 
+}
+
+function infoTab() {
+  showInfo = !showInfo;
+  redrawAll();
 }
 
 // --- API --------------------------------
@@ -1066,4 +1147,13 @@ function windowResized() {
   resizeCanvas(max(800, windowWidth), max(450, windowHeight));
   repositionButtons();
   redrawAll();
+}
+
+// --- Keyboard and scroll wheel input --------------------------------
+
+function keyPressed() {
+  // Check if Enter is pressed and the input box is currently active
+  if (keyCode === ENTER && document.activeElement === tickerInput.elt) {
+    handleLoad();
+  }
 }
