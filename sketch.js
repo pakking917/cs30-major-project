@@ -40,7 +40,7 @@ const RSI_GAP    = 10;
 const TOP_BAR    = 55;
 
 
-const COL_BG       = [15,  17,  26];
+const COL_BG       = [0,   0,   0];
 const COL_PANEL    = [22,  25,  38];
 const COL_BORDER   = [50,  55,  80];
 const COL_GREEN    = [0,   220, 130];
@@ -126,7 +126,7 @@ function loadPortfolio() {
   }
   try {
     let data = JSON.parse(raw);
-    cash = (typeof data.cash === 'number') ? data.cash : startingCash;
+    cash = typeof data.cash === 'number' ? data.cash : startingCash;
     holdings = new Map(data.holdings || []);
     lastPrices = new Map(data.lastPrices || []);
   } 
@@ -215,7 +215,7 @@ function drawHUD() {
     textSize(10);
     textAlign(LEFT, TOP);
     text(label, hx + 10, curY);
-    fill(...(valCol || COL_TEXT));
+    fill(...(valCol || COL_TEXT)); // I think these brackets are necessary contary to ESLint
     textSize(12);
     textAlign(RIGHT, TOP);
     text(value, hx + hw - 8, curY);
@@ -246,7 +246,9 @@ function drawHUD() {
   let totalHoldingsValue = 0;
   for (let [t, sCount] of holdings.entries()) {
     let p = lastPrices.get(t) || 0;
-    if (t === stock) p = currentPrice; // Prioritize real-time price updates
+    if (t === stock) {
+      p = currentPrice;
+    } // Prioritize real-time price updates
     totalHoldingsValue += sCount * p;
   }
   let portVal = cash + totalHoldingsValue;
@@ -566,8 +568,8 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   text("$" + price.toFixed(2), x - 3, cy);
 
   let rsiArray = calculateRSIArray (closePrices, 14);
-  let rsiVal   = (idx < rsiArray.length) ? rsiArray[idx] : null;
-  let tipLines = [vDates[idx] || ("Day " + idx), "$" + price.toFixed(2)];
+  let rsiVal   = idx < rsiArray.length ? rsiArray[idx] : null;
+  let tipLines = [vDates[idx] || "Day " + idx, "$" + price.toFixed(2)];
   if (rsiVal !== null) {
     tipLines.push("RSI: " + rsiVal.toFixed(1));
   }
@@ -824,7 +826,7 @@ function updateSimButtonVisibility() {
   simPauseButton.elt.style.display = show ? "inline-block" : "none";
   simFwdButton.elt.style.display   = show ? "inline-block" : "none";
   simClearButton.elt.style.display = show ? "inline-block" : "none";
-  simAddButton.elt.style.display   = (chartMode === "line") ? "inline-block" : "none";
+  simAddButton.elt.style.display   = chartMode === "line" ? "inline-block" : "none";
 
   repositionButtons();
 }
@@ -856,7 +858,9 @@ async function handleLoad() {
 
 function buyShare() {
   let qty = parseFloat(quantityInput.value());
-  if (isNaN(qty) || qty <= 0) return;
+  if (isNaN(qty) || qty <= 0) {
+    return;
+  }
   
   let cost = qty * currentPrice;
   if (!isLoading && cash >= cost) {
@@ -869,7 +873,9 @@ function buyShare() {
 
 function sellShare() {
   let qty = parseFloat(quantityInput.value());
-  if (isNaN(qty) || qty <= 0) return;
+  if (isNaN(qty) || qty <= 0) {
+    return;
+  }
 
   if (!isLoading && shares >= qty) {
     shares -= qty;
