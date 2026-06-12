@@ -1,6 +1,6 @@
-// Project Title
-// Your Name
-// Date
+// CS 30 Major Project: Stock Simulator
+// Pak King Lee
+// 2026/4/1
 //
 // Extra for Experts:
 // - describe what you did to take this project "above and beyond"
@@ -51,7 +51,7 @@ const COL_TEXT     = [200, 210, 230];
 const COL_MUTED    = [100, 110, 140];
 const COL_RSI      = [180, 120, 255];
 const COL_CROSS    = [180, 180, 180];
-
+const COL_EXPECTED = [255, 215, 0]; 
 
 let buyButton, sellButton, resetButton;
 let chartToggleButton;
@@ -60,6 +60,9 @@ let simAddButton, simPlayButton, simPauseButton, simFwdButton, simClearButton;
 
 let showInfo = false;
 let infoButton;
+
+let errorText = "";
+let errorTicks = 0;
 
 
 function preload() {
@@ -86,6 +89,12 @@ async function setup() {
 function draw() {
   if (isLoading) {
     return;
+  }
+  if (errorTicks > 0) {
+    errorTicks--;
+    if (errorTicks === 0) {
+      errorText = "";
+    }
   }
   if (simMode && simPlaying && simPaths.length > 0) {
     simFrame = min(simFrame + simSpeed, simTotalFrames);
@@ -497,12 +506,31 @@ function drawSimPaths(x, y, w, h, lo, hi, totalLen) {
 
   for (let p of simPaths) {
     let futureEnd = min(realLen + simFrame, p.closes.length);
-    stroke(...p.col);
-    strokeWeight(1.5);
+    stroke(p.col[0], p.col[1], p.col[2], 70);    
+    strokeWeight(1);
     noFill();
     beginShape();
     for (let i = realLen - 1; i < futureEnd; i++) {
       vertex(dataX(i, totalLen, x, w), priceY(p.closes[i], lo, hi, y, h));
+    }
+    endShape();
+  }
+
+  if (simPaths.length > 0) {
+    let futureEnd = min(realLen + simFrame, simPaths[0].closes.length);
+    
+    stroke(...COL_EXPECTED);
+    strokeWeight(3); // Thicker line for expected outcome
+    noFill();
+    beginShape();
+    
+    for (let i = realLen - 1; i < futureEnd; i++) {
+      let sum = 0;
+      for (let p of simPaths) {
+        sum += p.closes[i];
+      }
+      let avgPrice = sum / simPaths.length;
+      vertex(dataX(i, totalLen, x, w), priceY(avgPrice, lo, hi, y, h));
     }
     endShape();
   }
@@ -532,7 +560,6 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   }
 
   let vDates  = visibleDates();
-  let vCloses = visibleCloses();
 
   // Map mouseX to nearest data index across the full visible range
   let idx = constrain(round(map(mouseX, x, x + w, 0, totalLen - 1)), 0, totalLen - 1);
@@ -543,7 +570,11 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
     price = closePrices[idx];
   }
   else if (simPaths.length > 0) {
-    price = simPaths[0].closes[idx] || closePrices[closePrices.length - 1];
+    let sum = 0;
+    for (let p of simPaths) {
+      sum += p.closes[idx] || closePrices[closePrices.length - 1];
+    }
+    price = sum / simPaths.length;
   }
   else {
     return;
@@ -605,23 +636,21 @@ function drawInfoPanel() {
   noStroke();
   fill(...COL_TEXT);
   textFont('Google Sans');
-  textSize(14);
+  textSize(width / 50);
   textAlign(LEFT, TOP);
   text("SYSTEM DOCUMENTATION & GUIDE", x + 50, y + 40);
   
-  textSize(width / 50);
   let panelText = 
-    "• RSI (Relative Strength Index):\n" +
-    "  A momentum oscillator tracking structural asset velocity between 0 and 100.\n" +
-    "  - Readings > 70 suggest an OVERBOUGHT condition (potential drop execution).\n" +
-    "  - Readings < 30 suggest an OVERSOLD condition (potential rally baseline).\n\n" +
-    "• SIMULATION ENGINE:\n" +
-    "  Generates asset path variants leveraging Geometric Brownian Motion (GBM).\n" +
-    "  Models drift trends against localized standard deviations parsed from historical close data.\n\n" +
-    "• TIMELINE CONTROLS:\n" +
-    "  - Scroll Wheel: Dynamically scale layout width expansion / compression along X-Axis.\n" +
-    "  - Mouse Drag: Shift and slide horizontally through structural dataset increments.";
-  text(panelText, x + 50, y + 75, w - 100);
+  "• SIMULATION ENGINE:\n" +
+  `  Click "Add path" and "Play" to see the simulations.\n` +
+  "  Based on a Geometric Brownian Motion (GBM).\n" +
+  "  Models drift trends against localized standard deviations parsed from historical close data.\n" +
+  "  Thicker gold line represents average expected outcome.\n\n" +
+  "• RSI (Relative Strength Index):\n" +
+  "  A technical indicator of how much the stock is overbought/oversold.\n" +
+  "  - Readings > 70 suggest an OVERBOUGHT condition (potential drop execution).\n" +
+  "  - Readings < 30 suggest an OVERSOLD condition (potential rally baseline).\n\n";
+  text(panelText, x + 50, y + 125, w - 100);
 }
 
 function redrawAll() {
@@ -654,6 +683,20 @@ function redrawAll() {
 
   if (showInfo) {
     drawInfoPanel();
+  }
+
+  if (errorText !== "") {
+    let { x, y, w } = graphBounds();
+    fill(45, 20, 25);
+    stroke(...COL_RED);
+    strokeWeight(1);
+    rect(x + w/2 - 120, y + 40, 240, 35, 4);
+    
+    noStroke();
+    fill(...COL_RED);
+    textSize(11);
+    textAlign(CENTER, CENTER);
+    text(errorText, x + w/2, y + 57);
   }
 }
 
@@ -847,11 +890,13 @@ function toggleChartMode() {
 
 async function handleLoad() {
   let t = tickerInput.value().toUpperCase().trim();
-  if (!t) {
+  if (!t || t === '') {
     return;
   }
   if (!checkTicker(t)) {
-    showLoading("Unknown ticker: " + t); return; 
+    errorText = "Unknown ticker: " + t;
+    errorTicks = 180; // Displays warning for 3 secs
+    return; 
   }
   await loadStock(t);
 }
@@ -940,21 +985,20 @@ async function getData(url) {
 
 // --- Price Simulation --------------------------------
 
-function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100, steps = 600) {
+function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100) {
   let prices = structuredClone(priceHistory);
   let currentPrice = priceHistory[priceHistory.length - 1];
   
-  let dStep = totalTime / steps; 
   
   
-  for (let i = 0; i < steps; i += dStep) {
+  for (let i = 0; i < totalTime; i ++) {
     
     let u1 = random();
     let u2 = random();
     let z0 = Math.sqrt(-2 * Math.log(u1)) *  Math.cos(TAU * u2);
     
-    let drift = (averageReturn - 0.5 * Math.pow(volatility, 2)) * dStep;
-    let diffusion = volatility * Math.sqrt(dStep) * z0;
+    let drift = averageReturn - 0.5 * Math.pow(volatility, 2);
+    let diffusion = volatility * z0;
     
     currentPrice *= Math.exp(drift + diffusion);
     prices.push(currentPrice);
@@ -969,7 +1013,7 @@ function addSimPath() {
     return;
   }
 
-  let futurePrices = generatePrice(closePrices, 0.0003, 0.02, 100, simStepsPerPath);
+  let futurePrices = generatePrice(closePrices, 0.0003, 0.02, simStepsPerPath);
   let futureDates  = generateFutureDates(dateLabels[dateLabels.length - 1], simStepsPerPath);
   let fullCloses   = [...closePrices, ...futurePrices.slice(closePrices.length)];
   let fullDates    = [...dateLabels,  ...futureDates];
@@ -1027,7 +1071,8 @@ function pauseSim() {
   simPlaying = false; 
 }
 function fwdSim()   {
-  simFrame = min(simFrame + 10, simTotalFrames); redrawAll(); 
+  simFrame = min(simFrame + 10, simTotalFrames); 
+  redrawAll(); 
 }
 
 function parseHistoricalData(data, length = 600) {
