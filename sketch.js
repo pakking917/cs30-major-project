@@ -3,8 +3,19 @@
 // 2026/4/1
 //
 // Extra for Experts:
-// - describe what you did to take this project "above and beyond"
+/* 
+- Integration with External API to pull real time stock prices and 250-day records from eodhd,
+  using a Vercel web proxy to hide API key and mitigate CORS error
+- Used asynchornous functions to handle lag and promises
+- Reusing data structure in simulation for efficient data loading
+- Comprehensive error messages
+- Use of spread operator
+- Dynamic window scaling
+- Persistent state management with local storage and stringifying maps to store user profile efficiently
+*/
 
+
+// --- Global Variables --------------------------------
 let tickerLibrary;
 let tickerArray;
 
@@ -33,13 +44,14 @@ let simPlaying = false;
 let simSpeed = 1;
 let simStepsPerPath = 1000;
 
+// Layout spacing constants
 const PAD        = 60;
 const HUD_W      = 220;
 const RSI_H      = 120;
 const RSI_GAP    = 10;
 const TOP_BAR    = 55;
 
-
+// Color Palette
 const COL_BG       = [0,   0,   0];
 const COL_PANEL    = [22,  25,  38];
 const COL_BORDER   = [50,  55,  80];
@@ -53,6 +65,7 @@ const COL_RSI      = [180, 120, 255];
 const COL_CROSS    = [180, 180, 180];
 const COL_EXPECTED = [255, 215, 0]; 
 
+// Buttons
 let buyButton, sellButton, resetButton;
 let chartToggleButton;
 let tickerInput, loadButton;
@@ -64,11 +77,12 @@ let infoButton;
 let errorText = "";
 let errorTicks = 0;
 
-
+// Preload the localized SEC ticker validation database
 function preload() {
   tickerLibrary = loadJSON('company_tickers.json');
 }
 
+// style interface and load cached profiles
 async function setup() {
   createCanvas(max(800, windowWidth), max(450, windowHeight));
   background(...COL_BG);
@@ -86,16 +100,18 @@ async function setup() {
   await loadStock(stock);
 }
 
+// Handles timeline state adjustments and interface frame redraw steps
 function draw() {
   if (isLoading) {
     return;
   }
-  if (errorTicks > 0) {
+  if (errorTicks > 0) { // Error Modal Visibility Handler
     errorTicks--;
     if (errorTicks === 0) {
       errorText = "";
     }
   }
+  // Incrementally add simulation visuals
   if (simMode && simPlaying && simPaths.length > 0) {
     simFrame = min(simFrame + simSpeed, simTotalFrames);
     if (simFrame >= simTotalFrames) {
@@ -136,7 +152,7 @@ function loadPortfolio() {
   try {
     let data = JSON.parse(raw);
     cash = typeof data.cash === 'number' ? data.cash : startingCash;
-    holdings = new Map(data.holdings || []);
+    holdings = new Map(data.holdings || []); // Reconstructs Map structures
     lastPrices = new Map(data.lastPrices || []);
   } 
   catch (e) {
@@ -157,6 +173,7 @@ function flushCurrentStockToHoldings() {
 
 // --- Coordinate calculators --------------------------------
 
+// Returns pixel canvas layout dimensions for the central charts
 function graphBounds() {
   return {
     x: PAD,
@@ -178,6 +195,7 @@ function visibleCloses() { // returns the union of real bars plus the currently-
   return combined;
 }
 
+// Combines historic calendar date arrays with dynamically generated ones
 function visibleDates() {
   if (!simMode || simPaths.length === 0) {
     return dateLabels;
@@ -193,6 +211,7 @@ function visibleLength() { // Total number of points currently shown on the time
   return closePrices.length + simFrame;
 }
 
+// Maps dataset indices onto display x and y locations
 function dataX(i, totalLen, graphx, graphw) {
   return map(i, 0, totalLen - 1, graphx, graphx + graphw);
 }
@@ -204,6 +223,7 @@ function priceY(p, low, high, graphy, graphh) {
 // --- Graphics --------------------------------
 
 // --- Graphics: HUD --------------------------------
+// Renders the information sidebar panel with analytics
 function drawHUD() {
   let hx = width - HUD_W + 5;
   let hy = TOP_BAR;
@@ -232,6 +252,7 @@ function drawHUD() {
     curY += lineH;
   }
 
+  // Visual division spacer
   function divider() {
     stroke(...COL_BORDER);
     strokeWeight(1);
@@ -252,6 +273,7 @@ function drawHUD() {
 
   divider();
 
+  // Accumulate global value positions 
   let totalHoldingsValue = 0;
   for (let [t, sCount] of holdings.entries()) {
     let p = lastPrices.get(t) || 0;
@@ -269,6 +291,7 @@ function drawHUD() {
 
   divider();
 
+  // Display evaluated signal properties for active stock index
   let rsiArray = calculateRSIArray(closePrices, 14);
   let lastRSI  = null;
   for (let i = rsiArray.length - 1; i >= 0; i--) {
@@ -300,7 +323,7 @@ function drawHUD() {
 }
 
 // --- Graphics: Ticker --------------------------------
-
+// Draws active company metadata profile tags above the charts
 function drawTickerHeader(x, y) {
   noStroke();
   fill(...COL_TEXT);
@@ -325,7 +348,7 @@ function drawTickerHeader(x, y) {
 }
 
 // --- Graphics: Grid --------------------------------
-
+// Draws background grids along with clear scale marks for coordinates
 function drawGridAndAxes(x, y, w, h, lo, hi, totalLen) {
   let vDates = visibleDates();
   textFont('Google Sans');
@@ -366,6 +389,7 @@ function drawGridAndAxes(x, y, w, h, lo, hi, totalLen) {
   rect(x, y, w, h);
 }
 
+// Formats timestamp data structures safely to short string outputs
 function formatDate(d) {
 
   let parts = d.split("-");
@@ -377,7 +401,7 @@ function formatDate(d) {
 }
 
 // --- Graphics: Loading Screen --------------------------------
-
+// Renders feedback text when fetching API data
 function showLoading(msg) {
   background(...COL_BG);
   fill(...COL_TEXT);
@@ -389,7 +413,7 @@ function showLoading(msg) {
 }
 
 // --- Graphics: Charts --------------------------------
-
+// Routing logic switcher selecting core data representation frameworks
 function drawMainChart(x, y, w, h, lo, hi, totalLen) {
   if (chartMode === "line") {
     drawLineChart(closePrices, x, y, w, h, lo, hi, totalLen, COL_GREEN);
@@ -399,7 +423,7 @@ function drawMainChart(x, y, w, h, lo, hi, totalLen) {
   }
 }
 
-function drawLineChart(prices, x, y, w, h, lo, hi, totalLen, col) {
+function drawLineChart(prices, x, y, w, h, lo, hi, totalLen, col) { // standard line chart
   stroke(...col);
   strokeWeight(1.5);
   noFill();
@@ -410,7 +434,7 @@ function drawLineChart(prices, x, y, w, h, lo, hi, totalLen, col) {
   endShape();
 }
 
-function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
+function drawCandleChart(x, y, w, h, lo, hi, totalLen) { // open-high-low-close financial candlestick
   let slotW   = w / totalLen;
   let candleW = max(1, slotW * 0.7);
   for (let i = 0; i < ohlcData.length; i++) {
@@ -431,6 +455,7 @@ function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
 }
 
 // --- Graphics: RSI Chart --------------------------------
+// Renders the momentum subplot with RSI signals
 function drawRSI(x, y, w, h, totalLen) {
   let rsiY     = y + h + RSI_GAP + 18;
   let rsiH     = RSI_H;
@@ -489,10 +514,11 @@ function drawSeparator(x, y, w, h) {
 
 
 // --- Graphics: Simulation Paths --------------------------------
-
+// Traces and updates simulated projections with an expected average trend
 function drawSimPaths(x, y, w, h, lo, hi, totalLen) {
   let realLen = closePrices.length;
 
+  // Render individual Monte Carlo iteration runs
   for (let p of simPaths) {
     let futureEnd = min(realLen + simFrame, p.closes.length);
     stroke(p.col[0], p.col[1], p.col[2], 70);    
@@ -505,6 +531,7 @@ function drawSimPaths(x, y, w, h, lo, hi, totalLen) {
     endShape();
   }
 
+  // Calculate and draw the mean trendline
   if (simPaths.length > 0) {
     let futureEnd = min(realLen + simFrame, simPaths[0].closes.length);
     
@@ -543,6 +570,7 @@ function setLineDash(pattern) {
 }
 
 // --- Graphics: Crosshair --------------------------------
+// Function to clearly display date, price, and rsi signal according to mouse coordinates
 function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
   if (mouseX < x || mouseX > x + w || mouseY < y || mouseY > y + h) {
     return;
@@ -614,7 +642,7 @@ function drawCrosshair(x, y, w, h, lo, hi, totalLen) {
 }
 
 // --- Graphics: Crosshair --------------------------------
-
+// Renders the info tab
 function drawInfoPanel() {
   let { x, y, w, h } = graphBounds();
   fill(22, 25, 38, 245);
@@ -642,6 +670,7 @@ function drawInfoPanel() {
   text(panelText, x + 50, y + 125, w - 100);
 }
 
+// Primary execution draw engine sorting layout layering orders
 function redrawAll() {
   background(...COL_BG);
   if (closePrices.length === 0) {
@@ -659,6 +688,7 @@ function redrawAll() {
   let totalLen = visibleLength();
   let { x, y, w, h } = graphBounds();
 
+  // Ordered execution layers
   drawGridAndAxes(x, y, w, h, lo, hi, totalLen);
   drawMainChart(x, y, w, h, lo, hi, totalLen);
   if (simMode && simPaths.length > 0) {
@@ -674,6 +704,7 @@ function redrawAll() {
     drawInfoPanel();
   }
 
+  // Process warning layout containers when actively triggered
   if (errorText !== "") {
     let { x, y, w } = graphBounds();
     fill(45, 20, 25);
@@ -690,7 +721,7 @@ function redrawAll() {
 }
 
 // --- Data loading --------------------------------
-
+// Handles asynchronous data gathering and parsing pipeline transformations
 async function loadStock(ticker) {
   // Before leaving the current stock, snapshot shares into holdings and persist.
   if (closePrices.length > 0) {
@@ -711,7 +742,7 @@ async function loadStock(ticker) {
     return;
   }
 
-  let slice = rawHistory.slice(-500);
+  let slice = rawHistory.slice(-500); // limit data to last 500 days (although my plan only supports 250 days)
   ohlcData    = [];
   closePrices = [];
   dateLabels  = [];
@@ -757,7 +788,7 @@ async function loadStock(ticker) {
 }
 
 // --- Buttons --------------------------------
-
+// CSS layout (I forgot how to code in CSS so I am putting it all here)
 function styleButton(btn, bgHex) {
   btn.style('background',   bgHex || '#141828');
   btn.style('color',        '#c3cde1');
@@ -769,6 +800,7 @@ function styleButton(btn, bgHex) {
   btn.style('cursor',       'pointer');
 }
 
+// Spawns and configures DOM input hooks
 function initializeSystem()  {
   buyButton = createButton("Buy Shares");
   buyButton.mousePressed(buyShare);
@@ -835,6 +867,7 @@ function initializeSystem()  {
   updateSimButtonVisibility();
 }
 
+// Dynamically calculate header offsets when window is resized
 function repositionButtons() {
   let nextX = 10, by = 12, gap = 6;
   function place(btn) {
@@ -858,6 +891,7 @@ function repositionButtons() {
   loadButton.position(width - HUD_W - 55, by);
 }
 
+// Toggles visibility of elements depending on chart mode
 function updateSimButtonVisibility() {
   let show = simMode && simPaths.length > 0;
   simPlayButton.elt.style.display  = show ? "inline-block" : "none";
@@ -869,6 +903,7 @@ function updateSimButtonVisibility() {
   repositionButtons();
 }
 
+// Switches between Line and Candlestick charts
 function toggleChartMode() {
   if (chartMode === "line") {
     chartMode = "candle";
@@ -883,6 +918,7 @@ function toggleChartMode() {
   redrawAll();
 }
 
+// Handles input search parsing and executes error catching validation checks
 async function handleLoad() {
   let t = tickerInput.value().toUpperCase().trim();
   if (!t || t === '') {
@@ -896,6 +932,7 @@ async function handleLoad() {
   await loadStock(t);
 }
 
+// Transcation execution functions
 function buyShare() {
   let qty = parseFloat(quantityInput.value());
   if (isNaN(qty) || qty <= 0) {
@@ -930,6 +967,7 @@ function sellShare() {
   }
 }
 
+// Clears all tracking profiles and defaults account balances back to baseline
 function resetPort() {
   if (confirm("Are you sure you want to clear your current portfolio holdings and balance configurations?")) {
     cash = startingCash;
@@ -953,13 +991,14 @@ function infoTab() {
 }
 
 // --- API --------------------------------
-
+// Fetch for current (15 minute ago) price
 async function grabCurrentPrice(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=current`;
   const data = await getData(link);
   return data;
 }
 
+// Fetch for 250 day historical data
 async function grabPriceHistory(ticker) {
   let link = `https://stock-proxy-umber.vercel.app/api/stock?ticker=${ticker}&target=history`;
   const data = await getData(link);
@@ -979,7 +1018,7 @@ async function getData(url) {
 }
 
 // --- Price Simulation --------------------------------
-
+// Predict price by tracking structural drift constants mixed with volatility
 function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, totalTime = 100) {
   let prices = structuredClone(priceHistory);
   let currentPrice = priceHistory[priceHistory.length - 1];
@@ -1003,6 +1042,7 @@ function generatePrice(priceHistory, averageReturn = 0.0003, volatility = 0.02, 
   return prices;
 }
 
+// Appends stochastic path matrices onto active projection pools
 function addSimPath() {
   if (closePrices.length === 0) {
     return;
@@ -1029,6 +1069,7 @@ function addSimPath() {
   updateSimButtonVisibility();
 }
 
+// Pick distinct colors for newly added line charts
 function pickDistinctHue() {
   let forbidden = [0, 15, 345, 120, 130];
   let candidate = (simPaths.length * 53 + 200) % 360;
@@ -1038,12 +1079,13 @@ function pickDistinctHue() {
   return candidate;
 }
 
+// Generate sequential calendar date
 function generateFutureDates(lastDateStr, steps) {
   let dates = [];
   let d = new Date(lastDateStr);
   for (let i = 0; i < steps; i++) {
     d.setDate(d.getDate() + 1);
-    while (d.getDay() === 0 || d.getDay() === 6) {
+    while (d.getDay() === 0 || d.getDay() === 6) { // It is supposed to skip over weekends but I don't think it worked
       d.setDate(d.getDate() + 1);
     }
     dates.push(d.toISOString().slice(0, 10));
@@ -1051,12 +1093,14 @@ function generateFutureDates(lastDateStr, steps) {
   return dates;
 }
 
+// Resets active projections
 function clearSim() {
   simPaths = []; simMode = false; simPlaying = false; simFrame = 0;
   updateSimButtonVisibility();
   redrawAll();
 }
 
+// Play, pause, forward simulation
 function playSim()  {
   if (simMode && simPaths.length > 0) {
     simPlaying = true;
@@ -1070,6 +1114,7 @@ function fwdSim()   {
   redrawAll(); 
 }
 
+// Historical segment extractor parsing targets into arrays (unused)
 function parseHistoricalData(data, length = 600) {
   someData = [];
   for (let i = data.length - length; i < data.length; i++) {
@@ -1079,7 +1124,7 @@ function parseHistoricalData(data, length = 600) {
 }
 
 // --- RSI --------------------------------
-
+// Calculate the technical indicator RSI, which represents the relative momentum
 function calculateRSIArray(priceArray, periods) {
   if (!priceArray || priceArray.length <= periods) {
     return [];
@@ -1137,6 +1182,7 @@ function calculateRSIArray(priceArray, periods) {
   return rsiArray;
 }
 
+// Supposed to apply the strategy of buying and selling using RSI indicators
 function applyStrategy(priceArray, periods) { // I don't think I really got it to work
   let shares = 0;
   let cash = startingCash;
@@ -1178,10 +1224,12 @@ function applyStrategy(priceArray, periods) { // I don't think I really got it t
 
 // --- Ticker Validation --------------------------------
 
+// Verifies ticker entry matches entries inside JSON reference registries
 function checkTicker(ticker) {
   return tickerArray.includes(ticker); 
 }
 
+// Extracts ticker symbols out of the dictionary provided by SEC
 function extractValues(obj) {
   const values = Object.values(obj);
   return values.map(function(item) {
@@ -1203,7 +1251,7 @@ function windowResized() {
 }
 
 // --- Keyboard and scroll wheel input --------------------------------
-
+// Support using enter key to input ticker
 function keyPressed() {
   // Check if Enter is pressed and the input box is currently active
   if (keyCode === ENTER && document.activeElement === tickerInput.elt) {
