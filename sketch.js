@@ -262,7 +262,7 @@ function drawHUD() {
   }
   let portVal = cash + totalHoldingsValue;
   let pnl     = portVal - startingCash;
-  let pnlPct  = (pnl / startingCash) * 100;
+  let pnlPct  = pnl / startingCash * 100;
   let pSign   = pnl >= 0 ? "+" : "";
   row("TOTAL", "$" + portVal.toFixed(2));
   row("P&L",   pSign + "$" + pnl.toFixed(2) + " (" + pSign + pnlPct.toFixed(1) + "%)", pnl >= 0 ? COL_GREEN : COL_RED);
@@ -283,6 +283,16 @@ function drawHUD() {
     row("RSI", lastRSI.toFixed(1) + "  " + sig, sigCol);
   }
 
+  // I didn't get the RSI simulator to work
+  // divider();
+
+  // let backtest = applyStrategy(closePrices, 14);
+  // let rsiSign = backtest.pnlPct >= 0 ? "+" : "";
+  // let rsiCol  = backtest.pnlPct >= 0 ? COL_GREEN : COL_RED;
+  
+  // row("How RSI performed", "$" + backtest.endingValue.toFixed(2));
+  // row("RSI STRAT P&L", rsiSign + backtest.pnlPct.toFixed(1) + "%", rsiCol);
+
   divider();
 
   row("HIGH", "$" + max(closePrices).toFixed(2), COL_GREEN);
@@ -290,27 +300,6 @@ function drawHUD() {
 }
 
 // --- Graphics: Ticker --------------------------------
-
-function drawTickerLabel() {
-  let { x, y } = graphBounds();
-  fill(...COL_TEXT);
-  noStroke();
-  textFont('Google Sans');
-  textSize(18);
-  textAlign(LEFT, BOTTOM);
-  text(stock, x + 8, y - 4);
-
-  // Price change
-  if (stockPrices.length > 1) {
-    let change    = stockPrices[stockPrices.length - 1] - stockPrices[0];
-    let changePct = change / stockPrices[0] * 100;
-    let col       = change >= 0 ? COL_GREEN : COL_RED;
-    fill(...col);
-    textSize(13);
-    let sign = change >= 0 ? "+" : "";
-    text(sign + "$" + change.toFixed(2) + " (" + sign + changePct.toFixed(2) + "%)", x + 70, y - 6);
-  }
-}
 
 function drawTickerHeader(x, y) {
   noStroke();
@@ -431,7 +420,7 @@ function drawCandleChart(x, y, w, h, lo, hi, totalLen) {
     let closeY = priceY(d.close, lo, hi, y, h);
     let highY  = priceY(d.high,  lo, hi, y, h);
     let lowY   = priceY(d.low,   lo, hi, y, h);
-    let col    = (d.close >= d.open) ? COL_GREEN : COL_RED;
+    let col    = d.close >= d.open ? COL_GREEN : COL_RED;
     stroke(...col);
     strokeWeight(1);
     line(cx, highY, cx, lowY);
@@ -723,9 +712,15 @@ async function loadStock(ticker) {
   }
 
   let slice = rawHistory.slice(-500);
-  ohlcData    = slice.map(d => ({ date: d.date, open: d.open, high: d.high, low: d.low, close: d.close }));
-  closePrices = ohlcData.map(d => d.close);
-  dateLabels  = ohlcData.map(d => d.date);
+  ohlcData    = [];
+  closePrices = [];
+  dateLabels  = [];
+
+  for (let d of slice) {
+    ohlcData.push({ date: d.date, open: d.open, high: d.high, low: d.low, close: d.close });
+    closePrices.push(d.close);
+    dateLabels.push(d.date);
+  }
 
   showLoading("Fetching current price...");
   let current = await grabCurrentPrice(ticker);
@@ -1142,35 +1137,42 @@ function calculateRSIArray(priceArray, periods) {
   return rsiArray;
 }
 
-function applyStrategy(priceArray, periods, startPeriods) {
+function applyStrategy(priceArray, periods) { // I don't think I really got it to work
   let shares = 0;
-  let cash = 1000;
+  let cash = startingCash;
 
   const rsiArray = calculateRSIArray(priceArray, periods);
   
 
-  for (let i = startPeriods; i < priceArray.length; i++) {
+  for (let i = periods; i < priceArray.length; i++) {
     const currentRSI = rsiArray[i];
     const currentPrice = priceArray[i];
 
-    if (currentRSI < 30 && cash > 0) {
-      const sharesToBuy = cash / currentPrice; 
-      shares += sharesToBuy;
-      cash = 0; 
+    if (currentRSI === undefined || isNaN(currentRSI)) {
+      continue; 
+    }
+
+    if (currentRSI < 30 && cash > 0.01) {
+      shares += cash / currentPrice;
+      cash = 0;
+      console.log('buy', currentPrice);
     } 
-    else if (currentRSI > 70 && shares > 0) { 
+    else if (currentRSI > 70 && shares > 0.0001) { 
       cash += shares * currentPrice;
       shares = 0;
+      console.log('sell', currentPrice);
+
     }
   }
 
-  const finalPrice = priceArray[priceArray.length - 1];
+  const finalPrice = priceArray[priceArray.length - 1] || 0;
+  const endingValue = cash + shares * finalPrice;
+  const pnl = endingValue - startingCash;
+  const pnlPct = pnl / startingCash * 100;
 
   return {
-    finalCash: cash,
-    finalPrice: finalPrice,
-    finalShares: shares,
-    endingValue: cash + shares * finalPrice
+    endingValue: endingValue,
+    pnlPct: pnlPct
   };
 }
 
